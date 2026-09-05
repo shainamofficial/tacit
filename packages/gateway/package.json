@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/gateway",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Model gateway: per-stage routing (routing.yaml), fallbacks, prompt caching, cost/latency logging (F-CMP-3, F-CMP-5). The only package allowed to import LLM SDKs. Session 4",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

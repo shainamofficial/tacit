@@ -1,0 +1,14 @@
+{
+  "name": "@tacit/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Typed runtime constants: agent turn/cost ceilings, compile budgets.",
+  "type": "module",
+  "exports": {
+    "./agent-budgets": "./agent-budgets.ts",
+    "./compile-budgets": "./compile-budgets.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

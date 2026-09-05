@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/mcp-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "MCP server: tacit_lookup / tacit_get_artifact / tacit_get_sources, per-user auth, ACL filter at query time (F-SRV-1..4). Week 5",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

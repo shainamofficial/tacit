@@ -1,0 +1,11 @@
+packages:
+  - packages/*
+  - packages/connectors/*
+  - apps/*
+  - evals
+  - config
+  - tooling/*
+
+# pnpm refuses dependency lifecycle scripts unless allow-listed (esbuild: tsx + vite).
+allowBuilds:
+  esbuild: true

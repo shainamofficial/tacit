@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/prompts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Compile-stage prompts as versioned .md + param schemas. PROPOSE-ONLY (CLAUDE.md ownership). Sessions 7-10",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

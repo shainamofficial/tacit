@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/graph",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Validation graph: per-person knowledge areas, response rate, accuracy; drives interview routing (F-INT-1). P1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

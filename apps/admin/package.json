@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/admin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Admin app (Next.js + shadcn/ui when the connect flow lands in Week 5): OAuth connect, scoping, permission-mapping review, scan report (F-ADM-1..4)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

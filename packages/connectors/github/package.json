@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/connector-github",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GitHub App connector: repo tree, PRs, CODEOWNERS, merge webhook (F-ING-2, F-CODE-2). Session 5",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
