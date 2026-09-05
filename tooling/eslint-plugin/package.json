@@ -1,0 +1,17 @@
+{
+  "name": "@tacit/eslint-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Repo-local ESLint rules. no-llm-sdk-outside-gateway enforces CLAUDE.md non-negotiable #3 (F-CMP-3).",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "eslint": ">=9"
+  }
+}
