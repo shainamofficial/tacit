@@ -1,0 +1,10 @@
+{
+  "name": "@tacit/evals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Northwind Robotics eval harness: corpus, golden set (PROPOSE-ONLY), and the CI-gated scorecard runner (F-CMP-4).",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
