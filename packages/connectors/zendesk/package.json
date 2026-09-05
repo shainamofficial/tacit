@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/connector-zendesk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zendesk connector: tickets + macros. P1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

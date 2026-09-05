@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/drift",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Code-vs-docs drift detection; code wins (F-CODE-3). Week 4",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

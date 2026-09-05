@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/connector-slack",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Slack read-only connector: OAuth, channel scoping, history backfill, membership-as-ACL (F-ING-1..3). Session 6",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

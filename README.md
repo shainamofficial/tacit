@@ -34,3 +34,18 @@ git clone https://github.com/shainamofficial/tacit && cd tacit
 # open in Claude Code (desktop app → Code tab → this folder)
 # paste Session 1 from docs/claude-code-playbook.md
 ```
+
+## Developing
+
+Prereqs: Node 22+, pnpm (via `corepack enable`), Docker.
+
+```bash
+cp .env.example .env      # set TACIT_PG_PORT if 5432 is taken locally
+pnpm install
+pnpm dev                  # starts docker Postgres (pgvector) + workers
+pnpm db:migrate           # apply packages/schema/migrations
+pnpm typecheck && pnpm lint && pnpm test
+pnpm eval                 # exits 1 until Phase 0 lands — intentional
+```
+
+Layout follows `docs/implementation-plan.md` §3. Model calls are only allowed in `packages/gateway` (enforced by `tacit/no-llm-sdk-outside-gateway`); agent turn/cost caps live in `config/agent-budgets.ts`.

@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/pipeline",
+  "version": "0.0.0",
+  "private": true,
+  "description": "pg-boss compile stages: filter -> extract -> draft -> judge -> contradict; idempotent, resumable, budget-capped (F-CMP-2). Sessions 7-10",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

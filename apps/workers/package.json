@@ -1,0 +1,15 @@
+{
+  "name": "@tacit/workers",
+  "version": "0.0.0",
+  "private": true,
+  "description": "pg-boss worker entrypoints for the compile pipeline and connectors",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}

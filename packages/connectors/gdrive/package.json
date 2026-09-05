@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/connector-gdrive",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Google Drive read-only connector: changes API delta sync, per-file ACL capture (F-ING-1..3). Session 6",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

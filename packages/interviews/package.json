@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/interviews",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Channel-agnostic interview objects + Slack/email adapters; global per-person rate limit lives in limits.ts (F-INT-4). P1",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

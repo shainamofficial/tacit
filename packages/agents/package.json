@@ -1,0 +1,13 @@
+{
+  "name": "@tacit/agents",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agent SDK harnesses: archaeologist, judge escalation, interviewer (P1). Every harness takes maxTurns + cost ceiling from config/agent-budgets.ts. Week 4",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}
