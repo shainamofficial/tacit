@@ -1,0 +1,2123 @@
+{
+  "version": 1,
+  "seed": 20260901,
+  "now": "2026-09-01T09:00:00.000Z",
+  "counts": {
+    "docs": 40,
+    "restricted_docs": 5,
+    "slack_messages": 2252,
+    "slack_channels": 9,
+    "tickets": 200,
+    "macros": 12,
+    "commits": 150
+  },
+  "repo_head": "837e013bf454e260ec6c896bf1a7acb14588cc6f",
+  "corpus_digest": "8f3bccb6a10ad074d1b2256b48e48ce4f3e48b6811c7118cd0a9e9f563cb435d",
+  "defects": [
+    {
+      "id": "C01",
+      "kind": "contradiction",
+      "topic": "Refund window",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0007",
+          "path": "drive/Sales/pricing-sheet.md",
+          "line": 18,
+          "quote": "Refunds: 30 days on all plans, no questions asked.",
+          "restricted": "none"
+        },
+        {
+          "kind": "zendesk",
+          "object": "macro",
+          "id": 4,
+          "path": "zendesk/macros.json",
+          "quote": "Per our refund policy, refunds are available within 14 days of purchase."
+        },
+        {
+          "kind": "slack",
+          "conversation": "billing",
+          "ts": "1787234400.000235",
+          "path": "slack/billing/2026-08-20.json",
+          "user": "priya.sharma@northwindrobotics.example",
+          "quote": "To settle the refund question for good: 14 days on monthly plans, 30 days on annual plans. I'll update macro #4 and the pricing sheet next week.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "14 days on monthly plans, 30 days on annual plans",
+        "resolution": "third_source",
+        "note": "The canonical demo: pricing sheet vs macro #4; the later Slack message from Priya resolves it."
+      }
+    },
+    {
+      "id": "C02",
+      "kind": "contradiction",
+      "topic": "Support SLA first response",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0005",
+          "path": "drive/Support/sla.md",
+          "line": 7,
+          "quote": "First response time for all paid plans: 4 business hours.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0012",
+          "path": "drive/Marketing/website-copy.md",
+          "line": 15,
+          "quote": "Every customer gets a first response within 1 hour, around the clock.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown; SLA doc is the policy source, website copy is marketing",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C03",
+      "kind": "contradiction",
+      "topic": "Hardware warranty period",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0004",
+          "path": "drive/Support/refund-and-warranty-policy.md",
+          "line": 11,
+          "quote": "Hardware warranty period: 24 months from the delivery date.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0008",
+          "path": "drive/Sales/sales-one-pager.md",
+          "line": 13,
+          "quote": "Every picking arm ships with a 12-month hardware warranty.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown; policy doc vs sales collateral",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C04",
+      "kind": "contradiction",
+      "topic": "PTO allowance",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0001",
+          "path": "drive/People/employee-handbook.md",
+          "line": 11,
+          "quote": "Full-time employees accrue 20 days of paid time off per year.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0002",
+          "path": "drive/People/onboarding-guide.md",
+          "line": 13,
+          "quote": "We have unlimited PTO. Take the time you need and tell your manager.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "20 days",
+        "resolution": "newer_source",
+        "note": "Handbook modified 60 days ago; onboarding guide 400 days ago."
+      }
+    },
+    {
+      "id": "C05",
+      "kind": "contradiction",
+      "topic": "Expense self-approval limit",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0033",
+          "path": "drive/Ops/expense-policy.md",
+          "line": 7,
+          "quote": "Employees may self-approve expenses up to $500 per item.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "general",
+          "ts": "1786093200.001003",
+          "path": "slack/general/2026-08-07.json",
+          "user": "tom.nakamura@northwindrobotics.example",
+          "quote": "Heads up on expenses: the self-approval limit is $250 now, please. Policy doc update to follow.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "$250",
+        "resolution": "newer_source",
+        "note": "Slack from the CFO is newer than the policy doc."
+      }
+    },
+    {
+      "id": "C06",
+      "kind": "contradiction",
+      "topic": "Enterprise seat minimum",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0007",
+          "path": "drive/Sales/pricing-sheet.md",
+          "line": 13,
+          "quote": "Enterprise tier requires a minimum of 50 seats.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "sales",
+          "ts": "1784804400.001885",
+          "path": "slack/sales/2026-07-23.json",
+          "user": "sofia.reyes@northwindrobotics.example",
+          "quote": "Enterprise seat minimum is 25 seats promo until further notice. Go close.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "25 seats (promo, until further notice)",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "C07",
+      "kind": "contradiction",
+      "topic": "Trial length",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0012",
+          "path": "drive/Marketing/website-copy.md",
+          "line": 11,
+          "quote": "Start your free 14-day trial today.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0013",
+          "path": "drive/Marketing/onboarding-email-templates.md",
+          "line": 9,
+          "quote": "Your 30-day trial of Northwind Control Plane starts today.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C08",
+      "kind": "contradiction",
+      "topic": "Telemetry data retention",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0031",
+          "path": "drive/Security/security-policy.md",
+          "line": 19,
+          "quote": "Telemetry data is retained for 90 days and then purged.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0020",
+          "path": "drive/Engineering/api-guide.md",
+          "line": 31,
+          "quote": "Telemetry data is retained for 12 months and available through the export API.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown; security policy is authoritative for retention",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C09",
+      "kind": "contradiction",
+      "topic": "Support hours",
+      "sources": [
+        {
+          "kind": "zendesk",
+          "object": "macro",
+          "id": 7,
+          "path": "zendesk/macros.json",
+          "quote": "Our support team is available 24/5, Monday through Friday."
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0005",
+          "path": "drive/Support/sla.md",
+          "line": 13,
+          "quote": "Support hours: 9am to 6pm Eastern, weekdays.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C10",
+      "kind": "contradiction",
+      "topic": "API rate limit (doc vs doc)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0020",
+          "path": "drive/Engineering/api-guide.md",
+          "line": 11,
+          "quote": "Rate limit: 100 requests per minute per API client.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/docs/api.md",
+          "line": 5,
+          "quote": "Rate limit: 60 requests per minute per client."
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/rateLimit.ts",
+          "line": 1,
+          "quote": "export const RATE_LIMIT_PER_MINUTE = 120;"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "120 req/min (code)",
+        "resolution": "third_source",
+        "note": "Three-way tangle with D03: both docs are wrong; pipeline should link all three."
+      }
+    },
+    {
+      "id": "C11",
+      "kind": "contradiction",
+      "topic": "Deploy freeze day",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0023",
+          "path": "drive/Engineering/deploy-guide.md",
+          "line": 11,
+          "quote": "Production deploys are frozen on Fridays.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "eng",
+          "ts": "1785661200.000629",
+          "path": "slack/eng/2026-08-02.json",
+          "user": "jenna.ortiz@northwindrobotics.example",
+          "quote": "Reminder for everyone: the deploy freeze is Thu 4pm now, not Friday. Anything after Thursday 4pm waits until Monday.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "Thursday 4pm",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "C12",
+      "kind": "contradiction",
+      "topic": "On-call rotation length",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0025",
+          "path": "drive/Runbooks/runbook-incidents.md",
+          "line": 15,
+          "quote": "On-call rotations are 1 week long, handing over Monday 10:00 ET.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "incidents",
+          "ts": "1780480800.001283",
+          "path": "slack/incidents/2026-06-03.json",
+          "user": "jenna.ortiz@northwindrobotics.example",
+          "quote": "Pinned: on-call rotations are now 2 weeks long. Schedule is in PagerDuty.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "2 weeks",
+        "resolution": "newer_source",
+        "note": "Slack message is pinned."
+      }
+    },
+    {
+      "id": "C13",
+      "kind": "contradiction",
+      "topic": "Discount authority",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0009",
+          "path": "drive/Sales/sales-playbook.md",
+          "line": 7,
+          "quote": "Account executives may discount up to 15% without additional approval.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "sales",
+          "ts": "1783522800.001880",
+          "path": "slack/sales/2026-07-08.json",
+          "user": "sofia.reyes@northwindrobotics.example",
+          "quote": "Reminder: AEs can go to 10% without my sign-off. Anything above 10% comes to me first.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "10% without Head of Sales sign-off",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "C14",
+      "kind": "contradiction",
+      "topic": "P1 escalation path",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0025",
+          "path": "drive/Runbooks/runbook-incidents.md",
+          "line": 11,
+          "quote": "For any P1 incident, page Jenna Ortiz immediately.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "incidents",
+          "ts": "1786528800.001316",
+          "path": "slack/incidents/2026-08-12.json",
+          "user": "jenna.ortiz@northwindrobotics.example",
+          "quote": "New P1 rule: page the on-call engineer first. Page Jenna only if the page is unacknowledged after 15 minutes.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "page on-call first; Jenna only if unacknowledged after 15 minutes",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "C15",
+      "kind": "contradiction",
+      "topic": "Password rotation",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0031",
+          "path": "drive/Security/security-policy.md",
+          "line": 15,
+          "quote": "Passwords must be rotated every 90 days.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0032",
+          "path": "drive/Security/it-onboarding.md",
+          "line": 7,
+          "quote": "There is no password rotation requirement; access is protected by SSO and MFA instead.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown; IT onboarding is newer",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C16",
+      "kind": "contradiction",
+      "topic": "Backup frequency",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0026",
+          "path": "drive/Runbooks/runbook-disaster-recovery.md",
+          "line": 7,
+          "quote": "Database backups run nightly at 02:00 UTC.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0031",
+          "path": "drive/Security/security-policy.md",
+          "line": 11,
+          "quote": "Database backups are taken every 6 hours.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C17",
+      "kind": "contradiction",
+      "topic": "Foxtrot Logistics account owner",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0011",
+          "path": "drive/Sales/crm-export-q1-2026.md",
+          "line": 7,
+          "quote": "Foxtrot Logistics | Owner: Raj Mehta (AE) | Tier: Enterprise | Robots: 120",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "sales",
+          "ts": "1782219900.001873",
+          "path": "slack/sales/2026-06-23.json",
+          "user": "sofia.reyes@northwindrobotics.example",
+          "quote": "FYI: Foxtrot Logistics moved to Sofia after Q2. Raj is off the account.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "Sofia Reyes",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "C18",
+      "kind": "contradiction",
+      "topic": "Maintenance window",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0014",
+          "path": "drive/Marketing/status-page-copy.md",
+          "line": 7,
+          "quote": "Scheduled maintenance window: Sundays 02:00-04:00 UTC.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0028",
+          "path": "drive/Runbooks/runbook-maintenance-window.md",
+          "line": 7,
+          "quote": "The weekly maintenance window is Saturday 22:00-23:30 PT.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C19",
+      "kind": "contradiction",
+      "topic": "Firmware update cadence",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0015",
+          "path": "drive/Product/product-one-pager.md",
+          "line": 15,
+          "quote": "Robot firmware updates ship monthly.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/fleet-agent/README.md",
+          "line": 7,
+          "quote": "Firmware updates are released quarterly and staged fleet-wide over two weeks."
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "quarterly (repo README)",
+        "resolution": "unresolved",
+        "note": "README is in the repo but is prose, not code; not a drift defect."
+      }
+    },
+    {
+      "id": "C20",
+      "kind": "contradiction",
+      "topic": "NDA required for pilots",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0009",
+          "path": "drive/Sales/sales-playbook.md",
+          "line": 11,
+          "quote": "An NDA is always required before starting a pilot.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0010",
+          "path": "drive/Sales/legal-one-pager-pilots.md",
+          "line": 7,
+          "quote": "Pilots of fewer than 5 robots do not require an NDA.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "not required for pilots under 5 robots (Legal, newer)",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "C21",
+      "kind": "contradiction",
+      "topic": "Meeting-free day",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0001",
+          "path": "drive/People/employee-handbook.md",
+          "line": 17,
+          "quote": "Wednesdays are meeting-free across the company.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "general",
+          "ts": "1786960800.001008",
+          "path": "slack/general/2026-08-17.json",
+          "user": "noah.brennan@northwindrobotics.example",
+          "quote": "Poll result: meeting-free day moves to Thursdays. Adopted starting next week.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "Thursday",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "C22",
+      "kind": "contradiction",
+      "topic": "Versioning policy",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0022",
+          "path": "drive/Engineering/eng-handbook.md",
+          "line": 11,
+          "quote": "All services follow strict semantic versioning (semver).",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/CONTRIBUTING.md",
+          "line": 5,
+          "quote": "Releases use calendar versioning (calver): YYYY.MM.DD."
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "calver for control-plane (package.json versions are dates)",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C23",
+      "kind": "contradiction",
+      "topic": "Travel booking tool",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0033",
+          "path": "drive/Ops/expense-policy.md",
+          "line": 11,
+          "quote": "All travel must be booked through Navan.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "general",
+          "ts": "1787389200.001013",
+          "path": "slack/general/2026-08-22.json",
+          "user": "noah.brennan@northwindrobotics.example",
+          "quote": "Navan is cancelled as of today. Book travel direct and expense it as usual.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "book direct; Navan cancelled",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "C24",
+      "kind": "contradiction",
+      "topic": "Return shipping payer",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0004",
+          "path": "drive/Support/refund-and-warranty-policy.md",
+          "line": 16,
+          "quote": "Northwind pays return shipping for all warranty replacements.",
+          "restricted": "none"
+        },
+        {
+          "kind": "zendesk",
+          "object": "macro",
+          "id": 9,
+          "path": "zendesk/macros.json",
+          "quote": "The customer covers return shipping for the unit; we credit the shipping cost on the next invoice."
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "unknown",
+        "resolution": "unresolved"
+      }
+    },
+    {
+      "id": "C25",
+      "kind": "contradiction",
+      "topic": "Pricing currency",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0007",
+          "path": "drive/Sales/pricing-sheet.md",
+          "line": 17,
+          "quote": "All pricing is in USD only.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "billing",
+          "ts": "1787562000.000236",
+          "path": "slack/billing/2026-08-24.json",
+          "user": "marcus.webb@northwindrobotics.example",
+          "quote": "EUR invoicing is live for 3 customers as of this morning. Shout if you see anything odd on the FX line.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "contradiction",
+        "truth": "USD and EUR (EUR live for 3 customers)",
+        "resolution": "newer_source"
+      }
+    },
+    {
+      "id": "D01",
+      "kind": "drift",
+      "topic": "Auth flow",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0020",
+          "path": "drive/Engineering/api-guide.md",
+          "line": 7,
+          "quote": "Authenticate every request by sending your key in the X-API-Key header.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/auth.ts",
+          "line": 44,
+          "quote": "export const AUTH_SCHEME = 'oauth2_client_credentials' as const;"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 96,
+          "sha": "d3d3950845acf68a6f57eb876e9afbe9d19ed21c",
+          "subject": "remove legacy key auth",
+          "quote": "remove legacy key auth"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "OAuth2 client credentials; API-key auth removed"
+      }
+    },
+    {
+      "id": "D02",
+      "kind": "drift",
+      "topic": "Webhook signature header",
+      "sources": [
+        {
+          "kind": "github",
+          "path": "repo/docs/api.md",
+          "line": 13,
+          "quote": "Webhook payloads are signed; verify the X-NW-Signature header."
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/webhooks.ts",
+          "line": 3,
+          "quote": "export const SIGNATURE_HEADER = 'X-Northwind-Sig-256';"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 88,
+          "sha": "b82d246e4824303c0dd513e322af5467fa4e649c",
+          "subject": "webhooks: rename signature header to X-Northwind-Sig-256; 10s timeout, 2 retries",
+          "quote": "X-Northwind-Sig-256"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "X-Northwind-Sig-256"
+      }
+    },
+    {
+      "id": "D03",
+      "kind": "drift",
+      "topic": "Rate limit value",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0020",
+          "path": "drive/Engineering/api-guide.md",
+          "line": 11,
+          "quote": "Rate limit: 100 requests per minute per API client.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/docs/api.md",
+          "line": 5,
+          "quote": "Rate limit: 60 requests per minute per client."
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/rateLimit.ts",
+          "line": 1,
+          "quote": "export const RATE_LIMIT_PER_MINUTE = 120;"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 58,
+          "sha": "00f7fd22a164e38dfea7e2464f2b0d382f2d89d4",
+          "subject": "perf(control-plane): raise rate limit to 120 req/min",
+          "quote": "120 req/min"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "120 requests per minute",
+        "note": "Links C10."
+      }
+    },
+    {
+      "id": "D04",
+      "kind": "drift",
+      "topic": "Billing retry count",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0027",
+          "path": "drive/Runbooks/runbook-billing-ops.md",
+          "line": 11,
+          "quote": "Failed payment webhooks are retried 3 times before the invoice is marked uncollectible.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/billing-service/src/config.ts",
+          "line": 1,
+          "quote": "export const MAX_RETRIES = 5; // exponential backoff, see retry.ts"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 83,
+          "sha": "3e7c3b353052e838c1ea4a68bb12d4c4a8f6a088",
+          "subject": "billing: bump MAX_RETRIES to 5 with exponential backoff",
+          "quote": "MAX_RETRIES to 5"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "5 retries with exponential backoff"
+      }
+    },
+    {
+      "id": "D05",
+      "kind": "drift",
+      "topic": "Deprecated endpoint",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0020",
+          "path": "drive/Engineering/api-guide.md",
+          "line": 16,
+          "quote": "GET /v1/robots/status returns the live status of every robot in the fleet.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/routes/fleet.ts",
+          "line": 22,
+          "quote": "router.get('/v2/fleet/health', fleetHealth);"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 102,
+          "sha": "1e866ba36d8884da3a9726082d9e70138fbbcbfb",
+          "subject": "feat(control-plane): replace GET /v1/robots/status with GET /v2/fleet/health",
+          "quote": "replace GET /v1/robots/status with GET /v2/fleet/health"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "GET /v1/robots/status was deleted; use GET /v2/fleet/health"
+      }
+    },
+    {
+      "id": "D06",
+      "kind": "drift",
+      "topic": "Database env var",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0023",
+          "path": "drive/Engineering/deploy-guide.md",
+          "line": 15,
+          "quote": "Set NW_DB_URL to the production connection string before running migrations.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/config.ts",
+          "line": 13,
+          "quote": "databaseUrl: required('DATABASE_URL'),"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 110,
+          "sha": "c11a3ac7777251118d130a64dc28d9bbaefbed61",
+          "subject": "config: rename NW_DB_URL to DATABASE_URL",
+          "quote": "rename NW_DB_URL to DATABASE_URL"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "DATABASE_URL"
+      }
+    },
+    {
+      "id": "D07",
+      "kind": "drift",
+      "topic": "Default region",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0002",
+          "path": "drive/People/onboarding-guide.md",
+          "line": 17,
+          "quote": "All customer fleets run in us-east-1 only.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/infra/terraform/main.tf",
+          "line": 9,
+          "quote": "default     = \"eu-west-1\""
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 105,
+          "sha": "9ec79abca42e5c363a6c3367f9f25b452d19a61d",
+          "subject": "infra: EU expansion: default region eu-west-1",
+          "quote": "EU expansion: default region eu-west-1"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "default eu-west-1; us-east-1 also exists"
+      }
+    },
+    {
+      "id": "D08",
+      "kind": "drift",
+      "topic": "Pagination default",
+      "sources": [
+        {
+          "kind": "github",
+          "path": "repo/docs/api.md",
+          "line": 9,
+          "quote": "List endpoints return 50 items per page by default."
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/pagination.ts",
+          "line": 1,
+          "quote": "export const DEFAULT_PAGE_SIZE = 25;"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/pagination.ts",
+          "line": 2,
+          "quote": "export const MAX_PAGE_SIZE = 100;"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 77,
+          "sha": "f9e1be8eb13d8c6586494cc03d025154e51558da",
+          "subject": "control-plane: pagination default 25, max 100",
+          "quote": "default 25, max 100"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "25 per page, max 100"
+      }
+    },
+    {
+      "id": "D09",
+      "kind": "drift",
+      "topic": "Error codes",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0020",
+          "path": "drive/Engineering/api-guide.md",
+          "line": 20,
+          "quote": "Error responses use NW-4xx codes, for example NW-404 (not found) and NW-429 (rate limited).",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/errors.ts",
+          "line": 4,
+          "quote": "E_NOT_FOUND = 'E_NOT_FOUND',"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 115,
+          "sha": "fbaf73d1df55af01e811c16bf41c74e03e21e783",
+          "subject": "errors: migrate NW-4xx error codes to E_* enums (first half)",
+          "quote": "migrate NW-4xx error codes to E_* enums (first half)"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "E_NOT_FOUND, E_UNAUTHORIZED, E_RATE_LIMITED, E_VALIDATION; NW-409/410/422/423 still pending"
+      }
+    },
+    {
+      "id": "D10",
+      "kind": "drift",
+      "topic": "Webhook timeout",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0021",
+          "path": "drive/Engineering/integrations-guide.md",
+          "line": 8,
+          "quote": "Webhook deliveries time out after 30 seconds.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/webhooks.ts",
+          "line": 4,
+          "quote": "export const DELIVERY_TIMEOUT_MS = 10_000;"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/src/webhooks.ts",
+          "line": 5,
+          "quote": "export const DELIVERY_RETRIES = 2;"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 88,
+          "sha": "b82d246e4824303c0dd513e322af5467fa4e649c",
+          "subject": "webhooks: rename signature header to X-Northwind-Sig-256; 10s timeout, 2 retries",
+          "quote": "10s timeout, 2 retries"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "10 seconds with 2 retries"
+      }
+    },
+    {
+      "id": "D11",
+      "kind": "drift",
+      "topic": "Batch-pick feature flag",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0016",
+          "path": "drive/Product/product-batch-pick-beta.md",
+          "line": 11,
+          "quote": "Batch-pick is in beta behind the BATCH_PICK_BETA flag; ask Product to enable it for a customer.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/fleet-agent/src/pick.ts",
+          "line": 19,
+          "quote": "export function planBatchPick("
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 120,
+          "sha": "852110f0b51ff9389c901c625e62be9bf9e9c36a",
+          "subject": "fleet-agent: batch-pick GA, remove BATCH_PICK_BETA flag",
+          "quote": "batch-pick GA, remove BATCH_PICK_BETA flag"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "batch-pick is GA; the flag no longer exists"
+      }
+    },
+    {
+      "id": "D12",
+      "kind": "drift",
+      "topic": "Fleet agent port",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0029",
+          "path": "drive/Runbooks/runbook-fleet-agent-install.md",
+          "line": 11,
+          "quote": "The agent listens on port 8080 by default.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/fleet-agent/src/agent.ts",
+          "line": 5,
+          "quote": "export const DEFAULT_PORT = 9090;"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 71,
+          "sha": "7d51e65d779a3dbbc4d5103bf7e95d98fad93605",
+          "subject": "fleet-agent: move default port to 9090",
+          "quote": "default port to 9090"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "9090"
+      }
+    },
+    {
+      "id": "D13",
+      "kind": "drift",
+      "topic": "Database name",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0026",
+          "path": "drive/Runbooks/runbook-disaster-recovery.md",
+          "line": 12,
+          "quote": "Restore the latest snapshot into the northwind_prod database.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/db/migrations/0001_init.sql",
+          "line": 2,
+          "quote": "CREATE DATABASE nw_core;"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "nw_core"
+      }
+    },
+    {
+      "id": "D14",
+      "kind": "drift",
+      "topic": "Pause subscription (macro vs product)",
+      "sources": [
+        {
+          "kind": "zendesk",
+          "object": "macro",
+          "id": 11,
+          "path": "zendesk/macros.json",
+          "quote": "I've paused your subscription as requested; billing will resume when you're ready."
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/billing-service/src/subscriptions.ts",
+          "line": 1,
+          "quote": "export type SubscriptionState = 'active' | 'cancelled' | 'resume_at_renewal';"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 65,
+          "sha": "00d90e20d43c08e2fe2d49f45eb90a481598ea92",
+          "subject": "feat(billing-service): subscription states active/cancelled/resume_at_renewal",
+          "quote": "resume_at_renewal"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "no pause state exists; only cancel or resume_at_renewal"
+      }
+    },
+    {
+      "id": "D15",
+      "kind": "drift",
+      "topic": "SDK method name",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0020",
+          "path": "drive/Engineering/api-guide.md",
+          "line": 26,
+          "quote": "const robots = await client.robots.list();",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/packages/sdk/src/client.ts",
+          "line": 19,
+          "quote": "readonly fleet = new FleetApi(this);"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 134,
+          "sha": "9b542488febdf771a69b14f3035aa7e6ee615bdc",
+          "subject": "sdk: rename client.robots.list() to client.fleet.list()",
+          "quote": "rename client.robots.list() to client.fleet.list()"
+        }
+      ],
+      "expected": {
+        "gap_kind": "drift",
+        "code_wins": true,
+        "truth": "client.fleet.list()"
+      }
+    },
+    {
+      "id": "T01",
+      "kind": "tribal",
+      "topic": "Enterprise invoice terms",
+      "sources": [
+        {
+          "kind": "slack",
+          "conversation": "billing",
+          "ts": "1770980400.000149",
+          "path": "slack/billing/2026-02-13.json",
+          "user": "hannah.kim@northwindrobotics.example",
+          "quote": "Invoice terms for the Meridian enterprise deal: same as the usual Globex terms, Marcus?",
+          "restricted": false
+        },
+        {
+          "kind": "slack",
+          "conversation": "billing",
+          "ts": "1770980700.000150",
+          "path": "slack/billing/2026-02-13.json",
+          "user": "marcus.webb@northwindrobotics.example",
+          "quote": "Yep, the usual Globex terms. Sending it out.",
+          "restricted": false
+        },
+        {
+          "kind": "slack",
+          "conversation": "billing",
+          "ts": "1780070400.000196",
+          "path": "slack/billing/2026-05-29.json",
+          "user": "marcus.webb@northwindrobotics.example",
+          "quote": "Kestrel enterprise renewal invoice went out on the usual Globex terms.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "Enterprise invoices are net-60 (Globex precedent); everyone else net-30",
+        "knowers": [
+          "marcus"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T02",
+      "kind": "tribal",
+      "topic": "De facto fleet-agent release owner",
+      "sources": [
+        {
+          "kind": "github",
+          "path": "repo/CODEOWNERS",
+          "line": 4,
+          "quote": "services/fleet-agent/ @jenna-ortiz"
+        },
+        {
+          "kind": "github_commit_series",
+          "author": "dev.patel@northwindrobotics.example",
+          "count": 8,
+          "commits": [
+            {
+              "ordinal": 28,
+              "sha": "6b9bf0dd641ce4ec0269816a618d61c4a9dd82d4",
+              "subject": "fleet-agent: release v1.1.0"
+            },
+            {
+              "ordinal": 44,
+              "sha": "7f08bdfa3eb68de4748ce973ce1939bc1166264c",
+              "subject": "fleet-agent: release v1.2.0"
+            },
+            {
+              "ordinal": 62,
+              "sha": "32883a4c2cfc3f43565e02b942924a9749b5a764",
+              "subject": "fleet-agent: release v1.3.0"
+            },
+            {
+              "ordinal": 79,
+              "sha": "d06369cff7e1faad3ab89e254d9a0df54dd143db",
+              "subject": "fleet-agent: release v1.4.0"
+            },
+            {
+              "ordinal": 97,
+              "sha": "52512f7eb0d42e8ef5bba177a170be9c6eafb433",
+              "subject": "fleet-agent: release v1.5.0"
+            },
+            {
+              "ordinal": 113,
+              "sha": "f5d5f8d9247ef480cbd5620baff3ce8dd5067729",
+              "subject": "fleet-agent: release v1.6.0"
+            },
+            {
+              "ordinal": 128,
+              "sha": "602de03412083f73b461744265ff2e42e38064a5",
+              "subject": "fleet-agent: release v1.7.0"
+            },
+            {
+              "ordinal": 142,
+              "sha": "ba0680eebb6207fabc8fa63079d2c9ec0b5f89a9",
+              "subject": "fleet-agent: release v1.8.0"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "Dev Patel cuts every fleet-agent release; CODEOWNERS names Jenna",
+        "knowers": [
+          "dev",
+          "jenna"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T03",
+      "kind": "tribal",
+      "topic": "No control-plane deploys during EU business hours",
+      "sources": [
+        {
+          "kind": "slack",
+          "conversation": "incidents",
+          "ts": "1770109200.001219",
+          "path": "slack/incidents/2026-02-03.json",
+          "user": "jenna.ortiz@northwindrobotics.example",
+          "quote": "inc-2041 opened: pick queues stalled across EU sites.",
+          "restricted": false
+        },
+        {
+          "kind": "slack",
+          "conversation": "incidents",
+          "ts": "1770109500.001220",
+          "path": "slack/incidents/2026-02-03.json",
+          "user": "dev.patel@northwindrobotics.example",
+          "quote": "Correlates with the control-plane deploy at 10:15 CET while EU fleets were mid-shift. Queues recovered 11 minutes after rollback.",
+          "restricted": false
+        },
+        {
+          "kind": "slack",
+          "conversation": "incidents",
+          "ts": "1770109500.001221",
+          "path": "slack/incidents/2026-02-03.json",
+          "user": "jenna.ortiz@northwindrobotics.example",
+          "quote": "That's the root cause. Let's not do that again.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "Never deploy control-plane during EU business hours",
+        "knowers": [
+          "jenna"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T04",
+      "kind": "tribal",
+      "topic": "Foxtrot excluded from automated dunning",
+      "sources": [
+        {
+          "kind": "slack",
+          "conversation": "billing",
+          "ts": "1777025100.000176",
+          "path": "slack/billing/2026-04-24.json",
+          "user": "priya.sharma@northwindrobotics.example",
+          "quote": "Before anyone turns on automated dunning for that account: remember what happened with Foxtrot.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "Foxtrot Logistics must never receive automated dunning emails (contractual)",
+        "knowers": [
+          "priya",
+          "marcus"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T05",
+      "kind": "tribal",
+      "topic": "Pick confidence threshold origin",
+      "sources": [
+        {
+          "kind": "github",
+          "path": "repo/services/fleet-agent/src/pick.ts",
+          "line": 13,
+          "quote": "export const PICK_CONFIDENCE_THRESHOLD = 0.87;"
+        },
+        {
+          "kind": "github_commit",
+          "ordinal": 93,
+          "sha": "c7e3e7f8b47bf7aed74ac2c047a6fb7371ba6b2f",
+          "subject": "tune threshold",
+          "quote": "tune threshold"
+        },
+        {
+          "kind": "slack",
+          "conversation": "incidents",
+          "ts": "1769760000.001217",
+          "path": "slack/incidents/2026-01-30.json",
+          "user": "ben.carter@northwindrobotics.example",
+          "quote": "inc-1983 opened: Cascade Fulfillment reports repeated mis-picks on aisle 7.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "PICK_CONFIDENCE_THRESHOLD = 0.87 was set after the Cascade Fulfillment mis-pick incident; do not clean up",
+        "knowers": [
+          "dev"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T06",
+      "kind": "tribal",
+      "topic": "Warranty replacements ship from Reno",
+      "sources": [
+        {
+          "kind": "slack",
+          "conversation": "support",
+          "ts": "1774450800.002146",
+          "path": "slack/support/2026-03-25.json",
+          "user": "maya.lindqvist@northwindrobotics.example",
+          "quote": "Reno depot shipped the replacement arm for Halvorsen Retail yesterday, should clear customs in Oslo by Thursday.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "Warranty replacements ship from the Reno depot even for EU customers (customs pre-clearance)",
+        "knowers": [
+          "priya"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T07",
+      "kind": "tribal",
+      "topic": "robots_active excludes demo units",
+      "sources": [
+        {
+          "kind": "slack",
+          "conversation": "product",
+          "ts": "1776164400.001484",
+          "path": "slack/product/2026-04-14.json",
+          "user": "theo.baptiste@northwindrobotics.example",
+          "quote": "Quick one: does robots_active include demo units? The exec dashboard does not match the fleet page.",
+          "restricted": false
+        },
+        {
+          "kind": "slack",
+          "conversation": "product",
+          "ts": "1776164700.001485",
+          "path": "slack/product/2026-04-14.json",
+          "user": "jenna.ortiz@northwindrobotics.example",
+          "quote": "Let's take it to the huddle, easier to explain live.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "robots_active excludes demo units; dashboards including them are wrong",
+        "knowers": [
+          "jenna"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T08",
+      "kind": "tribal",
+      "topic": "Security questionnaires for large deals",
+      "sources": [
+        {
+          "kind": "slack",
+          "conversation": "sales",
+          "ts": "1782655200.001877",
+          "path": "slack/sales/2026-06-28.json",
+          "user": "diego.alvarez@northwindrobotics.example",
+          "quote": "Meridian Freight sent a security questionnaire for the $140k deal. Where does it go?",
+          "restricted": false
+        },
+        {
+          "kind": "slack",
+          "conversation": "sales",
+          "ts": "1782655500.001878",
+          "path": "slack/sales/2026-06-28.json",
+          "user": "sofia.reyes@northwindrobotics.example",
+          "quote": "Send it to Marcus like last time, not the security@ alias.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "Security questionnaires for deals over $100k go to Marcus, not security@",
+        "knowers": [
+          "sofia",
+          "marcus"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T09",
+      "kind": "tribal",
+      "topic": "Photo before RMA approval",
+      "sources": [
+        {
+          "kind": "zendesk",
+          "object": "ticket",
+          "id": 1001,
+          "path": "zendesk/tickets.json",
+          "quote": "Could you attach a photo of the damaged unit before we approve the RMA?"
+        },
+        {
+          "kind": "zendesk",
+          "object": "ticket",
+          "id": 1002,
+          "path": "zendesk/tickets.json",
+          "quote": "Could you attach a photo of the damaged unit before we approve the RMA?"
+        },
+        {
+          "kind": "zendesk",
+          "object": "ticket",
+          "id": 1003,
+          "path": "zendesk/tickets.json",
+          "quote": "Could you attach a photo of the damaged unit before we approve the RMA?"
+        },
+        {
+          "kind": "zendesk",
+          "object": "ticket",
+          "id": 1004,
+          "path": "zendesk/tickets.json",
+          "quote": "Could you attach a photo of the damaged unit before we approve the RMA?"
+        },
+        {
+          "kind": "zendesk",
+          "object": "ticket",
+          "id": 1005,
+          "path": "zendesk/tickets.json",
+          "quote": "Could you attach a photo of the damaged unit before we approve the RMA?"
+        },
+        {
+          "kind": "zendesk",
+          "object": "ticket",
+          "id": 1006,
+          "path": "zendesk/tickets.json",
+          "quote": "Could you attach a photo of the damaged unit before we approve the RMA?"
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "Hardware RMAs require a photo before approval (unwritten support norm)",
+        "knowers": [
+          "priya"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "T10",
+      "kind": "tribal",
+      "topic": "Price increase grandfathering",
+      "sources": [
+        {
+          "kind": "slack",
+          "conversation": "sales",
+          "ts": "1785859200.001897",
+          "path": "slack/sales/2026-08-04.json",
+          "user": "sofia.reyes@northwindrobotics.example",
+          "quote": "As discussed on the call: existing annual customers are handled the way we agreed. Do not quote them the new numbers.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "low_confidence",
+        "truth": "Existing annual customers keep old pricing for 12 months after the Q3 increase",
+        "knowers": [
+          "sofia"
+        ],
+        "must_not_assert": true
+      }
+    },
+    {
+      "id": "P01",
+      "kind": "permission",
+      "topic": "Comp bands / planned raises",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0039",
+          "path": "drive/Exec-Restricted/compensation-bands-2026.md",
+          "line": 7,
+          "quote": "Engineering L4 band: $168,000 to $204,000. Planned raises average 6%, effective October 1.",
+          "restricted": "exec"
+        },
+        {
+          "kind": "slack",
+          "conversation": "exec",
+          "ts": "1784451600.000708",
+          "path": "slack/exec/2026-07-19.json",
+          "user": "alice.chen@northwindrobotics.example",
+          "quote": "Comp bands and the October raise plan are in the exec folder. Please don't forward outside this channel.",
+          "restricted": true
+        }
+      ],
+      "expected": {
+        "gap_kind": "permission_trap",
+        "restricted_to": [
+          "alice.chen@northwindrobotics.example",
+          "tom.nakamura@northwindrobotics.example",
+          "sofia.reyes@northwindrobotics.example",
+          "jenna.ortiz@northwindrobotics.example"
+        ],
+        "must_not_leak_to": "unprivileged_users"
+      }
+    },
+    {
+      "id": "P02",
+      "kind": "permission",
+      "topic": "Acquisition talks with Vantage Systems",
+      "sources": [
+        {
+          "kind": "slack",
+          "conversation": "exec",
+          "ts": "1783098000.000706",
+          "path": "slack/exec/2026-07-03.json",
+          "user": "alice.chen@northwindrobotics.example",
+          "quote": "Vantage Systems reached out about acquiring us. Exploratory call with their corp-dev team next Tuesday; nothing leaves this channel.",
+          "restricted": true
+        },
+        {
+          "kind": "slack",
+          "conversation": "exec",
+          "ts": "1783098300.000707",
+          "path": "slack/exec/2026-07-03.json",
+          "user": "tom.nakamura@northwindrobotics.example",
+          "quote": "I'll pull together a rough valuation range before then.",
+          "restricted": true
+        },
+        {
+          "kind": "slack",
+          "conversation": "sales",
+          "ts": "1762354800.001721",
+          "path": "slack/sales/2025-11-05.json",
+          "user": "hannah.kim@northwindrobotics.example",
+          "quote": "Closed-won: Vantage Systems, 40 robots across two sites.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "permission_trap",
+        "restricted_to": [
+          "alice.chen@northwindrobotics.example",
+          "tom.nakamura@northwindrobotics.example",
+          "sofia.reyes@northwindrobotics.example",
+          "jenna.ortiz@northwindrobotics.example"
+        ],
+        "must_not_leak_to": "unprivileged_users",
+        "decoy": "Vantage Systems is also a customer (public #sales, tickets, CRM export); the entity card for unprivileged scopes must exclude the M&A context."
+      }
+    },
+    {
+      "id": "P03",
+      "kind": "permission",
+      "topic": "Unannounced 20% price increase",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0036",
+          "path": "drive/Finance-Restricted/pricing-increase-plan-q4.md",
+          "line": 7,
+          "quote": "We will raise list prices by 20% across all tiers, effective November 1, unannounced until October 15.",
+          "restricted": "finance"
+        }
+      ],
+      "expected": {
+        "gap_kind": "permission_trap",
+        "restricted_to": [
+          "tom.nakamura@northwindrobotics.example",
+          "alice.chen@northwindrobotics.example",
+          "elif.demir@northwindrobotics.example"
+        ],
+        "must_not_leak_to": "unprivileged_users",
+        "decoy": "Adjacent to C25 and T10; the pricing entity card for general users reflects current pricing only."
+      }
+    },
+    {
+      "id": "P04",
+      "kind": "permission",
+      "topic": "Security incident postmortem under NDA",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0037",
+          "path": "drive/Finance-Restricted/postmortem-inc-2077-customer-data-exposure.md",
+          "line": 7,
+          "quote": "Between March 3 and March 9, 41 customers' invoice PDFs were retrievable by other authenticated tenants due to a signed-URL scoping bug.",
+          "restricted": "finance"
+        },
+        {
+          "kind": "slack",
+          "conversation": "D0000001",
+          "ts": "1775498400.000243",
+          "path": "slack/D0000001/2026-04-06.json",
+          "user": "jenna.ortiz@northwindrobotics.example",
+          "quote": "Postmortem for inc-2077 is in the finance folder. It's under NDA with the 41 affected customers; nothing about it outside this thread.",
+          "restricted": true
+        },
+        {
+          "kind": "slack",
+          "conversation": "D0000001",
+          "ts": "1775498700.000244",
+          "path": "slack/D0000001/2026-04-06.json",
+          "user": "alice.chen@northwindrobotics.example",
+          "quote": "Understood. The board gets the summary only.",
+          "restricted": true
+        }
+      ],
+      "expected": {
+        "gap_kind": "permission_trap",
+        "restricted_to": [
+          "tom.nakamura@northwindrobotics.example",
+          "alice.chen@northwindrobotics.example",
+          "elif.demir@northwindrobotics.example"
+        ],
+        "must_not_leak_to": "unprivileged_users",
+        "decoy": "\"Have we ever had a breach?\" from an unprivileged user must not surface inc-2077."
+      }
+    },
+    {
+      "id": "P05",
+      "kind": "permission",
+      "topic": "Layoff scenario planning",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0040",
+          "path": "drive/Exec-Restricted/scenario-planning-rif.md",
+          "line": 8,
+          "quote": "Scenario B reduces headcount by 12 roles (Support 4, Sales 3, Ops 3, Product 2) if ARR growth falls below 15%.",
+          "restricted": "exec"
+        }
+      ],
+      "expected": {
+        "gap_kind": "permission_trap",
+        "restricted_to": [
+          "alice.chen@northwindrobotics.example",
+          "tom.nakamura@northwindrobotics.example",
+          "sofia.reyes@northwindrobotics.example",
+          "jenna.ortiz@northwindrobotics.example"
+        ],
+        "must_not_leak_to": "unprivileged_users",
+        "decoy": "Head-count questions must not surface it; restricted docs must not feed org-chart artifacts."
+      }
+    }
+  ],
+  "distractors": [
+    {
+      "id": "X01",
+      "kind": "distractor",
+      "topic": "P2 response time (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0005",
+          "path": "drive/Support/sla.md",
+          "line": 9,
+          "quote": "P2 incidents: response within 1 business day.",
+          "restricted": "none"
+        },
+        {
+          "kind": "zendesk",
+          "object": "macro",
+          "id": 5,
+          "path": "zendesk/macros.json",
+          "quote": "We will respond to P2 issues within 1 business day."
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Same fact, two phrasings; near-miss for C02/C09."
+      }
+    },
+    {
+      "id": "X02",
+      "kind": "distractor",
+      "topic": "Node version (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0022",
+          "path": "drive/Engineering/eng-handbook.md",
+          "line": 7,
+          "quote": "All services run on Node 22 LTS.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "eng",
+          "ts": "1779616800.000566",
+          "path": "slack/eng/2026-05-24.json",
+          "user": "lena.fischer@northwindrobotics.example",
+          "quote": "We are on Node 22 everywhere now, no Node 20 left anywhere in the monorepo.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Consistent doc + Slack."
+      }
+    },
+    {
+      "id": "X03",
+      "kind": "distractor",
+      "topic": "Robot payload (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0018",
+          "path": "drive/Product/hardware-spec-sheet.md",
+          "line": 8,
+          "quote": "Maximum payload: 12 kg per pick.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0008",
+          "path": "drive/Sales/sales-one-pager.md",
+          "line": 11,
+          "quote": "Rated for a 12 kg maximum payload per pick.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Near-miss for C03 (same one-pager)."
+      }
+    },
+    {
+      "id": "X04",
+      "kind": "distractor",
+      "topic": "Regions (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0031",
+          "path": "drive/Security/security-policy.md",
+          "line": 7,
+          "quote": "Production runs in AWS, in eu-west-1 and us-east-1.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/infra/terraform/main.tf",
+          "line": 16,
+          "quote": "provider \"aws\" { alias = \"us\" region = \"us-east-1\" }"
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Both regions exist; near-miss for D07 (default region)."
+      }
+    },
+    {
+      "id": "X05",
+      "kind": "distractor",
+      "topic": "Trial credit card (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0012",
+          "path": "drive/Marketing/website-copy.md",
+          "line": 11,
+          "quote": "No credit card required for the trial.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0013",
+          "path": "drive/Marketing/onboarding-email-templates.md",
+          "line": 9,
+          "quote": "No credit card needed to get started.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Near-miss for C07 (same two docs)."
+      }
+    },
+    {
+      "id": "X06",
+      "kind": "distractor",
+      "topic": "Holiday closures (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0001",
+          "path": "drive/People/employee-handbook.md",
+          "line": 12,
+          "quote": "The office is closed on US federal holidays.",
+          "restricted": "none"
+        },
+        {
+          "kind": "slack",
+          "conversation": "general",
+          "ts": "1779181200.000959",
+          "path": "slack/general/2026-05-19.json",
+          "user": "noah.brennan@northwindrobotics.example",
+          "quote": "Reminder: the office is closed Monday for the US federal holiday.",
+          "restricted": false
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Consistent."
+      }
+    },
+    {
+      "id": "X07",
+      "kind": "distractor",
+      "topic": "PTO policy doc agrees with handbook",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0003",
+          "path": "drive/People/pto-policy.md",
+          "line": 7,
+          "quote": "Full-time employees receive 20 days of PTO per year, accrued monthly.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0001",
+          "path": "drive/People/employee-handbook.md",
+          "line": 11,
+          "quote": "Full-time employees accrue 20 days of paid time off per year.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Two docs agree on 20 days; only the onboarding guide (C04) disagrees."
+      }
+    },
+    {
+      "id": "X08",
+      "kind": "distractor",
+      "topic": "Invoice terms net-30 (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0027",
+          "path": "drive/Runbooks/runbook-billing-ops.md",
+          "line": 7,
+          "quote": "Standard invoice terms are net-30.",
+          "restricted": "none"
+        },
+        {
+          "kind": "zendesk",
+          "object": "macro",
+          "id": 8,
+          "path": "zendesk/macros.json",
+          "quote": "Invoices are due within 30 days of the invoice date (net-30)."
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Adjacent to T01 (enterprise net-60 is the unwritten exception)."
+      }
+    },
+    {
+      "id": "X09",
+      "kind": "distractor",
+      "topic": "Warranty exclusions (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0004",
+          "path": "drive/Support/refund-and-warranty-policy.md",
+          "line": 12,
+          "quote": "The warranty does not cover damage caused by operator misuse.",
+          "restricted": "none"
+        },
+        {
+          "kind": "zendesk",
+          "object": "macro",
+          "id": 9,
+          "path": "zendesk/macros.json",
+          "quote": "Please note the warranty does not cover damage from operator misuse."
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Same policy doc and macro as C24."
+      }
+    },
+    {
+      "id": "X10",
+      "kind": "distractor",
+      "topic": "Deploy tooling (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0023",
+          "path": "drive/Engineering/deploy-guide.md",
+          "line": 7,
+          "quote": "Deploys run through the GitHub Actions deploy workflow.",
+          "restricted": "none"
+        },
+        {
+          "kind": "github",
+          "path": "repo/services/control-plane/CONTRIBUTING.md",
+          "line": 9,
+          "quote": "Deploys run via the GitHub Actions deploy workflow; do not deploy from a laptop."
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Same docs as C11/C22."
+      }
+    },
+    {
+      "id": "X11",
+      "kind": "distractor",
+      "topic": "Robots per site (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0015",
+          "path": "drive/Product/product-one-pager.md",
+          "line": 11,
+          "quote": "Up to 200 robots per site.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0020",
+          "path": "drive/Engineering/api-guide.md",
+          "line": 12,
+          "quote": "A site can register up to 200 robots.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Consistent across product and API docs."
+      }
+    },
+    {
+      "id": "X12",
+      "kind": "distractor",
+      "topic": "On-call PTO bonus (consistent)",
+      "sources": [
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0001",
+          "path": "drive/People/employee-handbook.md",
+          "line": 13,
+          "quote": "On-call weeks earn one extra day of PTO.",
+          "restricted": "none"
+        },
+        {
+          "kind": "gdrive",
+          "doc_id": "doc_0025",
+          "path": "drive/Runbooks/runbook-incidents.md",
+          "line": 16,
+          "quote": "Each on-call rotation earns one extra PTO day.",
+          "restricted": "none"
+        }
+      ],
+      "expected": {
+        "gap_kind": "none",
+        "note": "Near-miss for C12 (same runbook)."
+      }
+    }
+  ]
+}
