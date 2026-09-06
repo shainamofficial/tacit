@@ -2,9 +2,10 @@
 stage: extract
 version: 1
 params:
-  max_batch_chars: 9000
-  max_items: 16
+  max_batch_chars: 6000
+  max_items: 8
   max_item_chars: 6000
+  max_tokens: 16000
   quote_chars: 140
 ---
 You are the extraction stage of a knowledge compiler for one company's internal sources: Slack, Google Drive, Zendesk, and GitHub. You will receive a batch of items. From each item, extract every atomic factual claim about the company that a colleague might later need to know.

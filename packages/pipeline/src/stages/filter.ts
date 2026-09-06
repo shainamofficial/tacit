@@ -50,7 +50,9 @@ export function ruleDecision(item: EvalSyncItem): FilterDecision | null {
       return null;
     }
     case 'github_commit':
-      return null;
+      // Commit history is ground truth for drift and tribal hints (a one-line
+      // "tune threshold" commit is exactly the kind of thing the model drops).
+      return keep('commit history is ground truth');
   }
 }
 
