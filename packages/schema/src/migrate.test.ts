@@ -77,6 +77,7 @@ describe.skipIf(!baseUrl)('migrate against Postgres (integration; needs DATABASE
       'model_calls',
       'sync_item_content',
       'quarantined_spans',
+      'sync_cursors',
     ]) {
       expect(names, `missing table ${table}`).toContain(table);
     }

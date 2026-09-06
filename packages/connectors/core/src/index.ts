@@ -1,9 +1,10 @@
-// @tacit/connector-core — shared connector plumbing: sync store, secrets
-// scanner + quarantine, ACL helpers (F-ING-3, F-ING-5, F-ING-6).
-export { AclSchema, aclAllows, aclEquals, aclIntersect, normalizeAcl, type Acl } from './acl';
-export { redact, scanSecrets, shannonEntropy, type SecretSpan } from './secrets';
+// @tacit/connector-core — shared connector plumbing: sync store, cursors,
+// secrets scanner + quarantine, ACL helpers (F-ING-2, F-ING-3, F-ING-5, F-ING-6).
 import type { UpsertResult } from './store';
 
+export { AclSchema, aclAllows, aclEquals, aclIntersect, normalizeAcl, type Acl } from './acl';
+export { SyncCursors } from './cursors';
+export { redact, scanSecrets, shannonEntropy, type SecretSpan } from './secrets';
 export { SyncStore, atomic, contentHash, type Db, type StoredItem, type UpsertInput, type UpsertOutcome, type UpsertResult } from './store';
 
 export interface SyncStats {
@@ -23,4 +24,12 @@ export function tally(stats: SyncStats, result: UpsertResult): void {
   stats.seen += 1;
   stats[result.outcome] += 1;
   stats.quarantined += result.quarantined;
+}
+
+/** Include/exclude scoping shared by connectors (F-ING-4). Matches by exact value or path prefix. */
+export function inScope(candidates: readonly string[], include: readonly string[] | undefined, exclude: readonly string[] | undefined): boolean {
+  const matches = (rule: string): boolean => candidates.some((c) => c === rule || c.startsWith(`${rule}/`));
+  if (exclude?.some(matches)) return false;
+  if (include && include.length > 0) return include.some(matches);
+  return true;
 }
