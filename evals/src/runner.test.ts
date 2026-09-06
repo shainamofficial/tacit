@@ -1,7 +1,7 @@
 // End-to-end harness tests on the real corpus: an empty pipeline must fail
 // with zero leaks; a pipeline that reproduces the answer key must pass every
 // recall metric; a leaky pipeline must be a hard fail regardless of recall.
-import type { CompleteFn } from '@tacit/gateway';
+import { GatewayUnavailableError, type CompleteFn } from '@tacit/gateway';
 import type { EvalArtifact, EvalPipeline, Finding, SourceRef } from '@tacit/pipeline';
 import { describe, expect, it } from 'vitest';
 import type { Location, ManifestDefect } from '../corpus/generator/manifest';
@@ -79,9 +79,13 @@ describe('eval runner', () => {
     expect(sc.failures.length).toBeGreaterThanOrEqual(4);
   }, 60_000);
 
-  it('reports factuality as unavailable (and fails) when the gateway is not implemented', async () => {
+  it('reports factuality as unavailable (and fails) when the gateway has no credentials', async () => {
     const corpus = loadCorpus();
-    const sc = await runEval({ pipeline: oraclePipeline(corpus.manifest.defects, corpus.manifest.distractors) });
+    // Injected rather than relying on the environment: a developer with a key set must not make real calls here.
+    const noCredentials: CompleteFn = async () => {
+      throw new GatewayUnavailableError('gateway unavailable: no Anthropic credentials');
+    };
+    const sc = await runEval({ pipeline: oraclePipeline(corpus.manifest.defects, corpus.manifest.distractors), complete: noCredentials });
     const factuality = sc.metrics.find((m) => m.key === 'factuality');
     expect(factuality?.value).toBeNull();
     expect(factuality?.note).toContain('gateway unavailable');

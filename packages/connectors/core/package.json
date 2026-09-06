@@ -1,0 +1,20 @@
+{
+  "name": "@tacit/connector-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared by every connector: sync store (content-hash dedup, ACL capture), secrets scanner + quarantine, ACL helpers (F-ING-3, F-ING-5, F-ING-6).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pg": "^8.23.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
+  }
+}
