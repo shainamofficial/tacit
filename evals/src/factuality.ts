@@ -30,13 +30,16 @@ Rules:
 - Partial support, extrapolation, or support from anything outside the SOURCE counts as unsupported.
 Respond with JSON only: {"supported": true|false, "reason": "<one sentence>"}`;
 
+// The judge sees the same item metadata the extractor saw (title carries the
+// author, modified_at the date), otherwise correct attributions look invented.
 function sourceWindow(corpus: LoadedCorpus, ref: SourceRef): string | null {
   const item = corpus.byRef.get(refKey(ref));
   if (!item) return null;
-  if (ref.line === undefined) return item.content.slice(0, 6000);
+  const header = `Title: ${item.title}\nDate: ${item.modified_at}\nSource: ${item.source}${item.kind ? ` (${item.kind})` : ''}\n\n`;
+  if (ref.line === undefined) return header + item.content.slice(0, 6000);
   const lines = item.content.split('\n');
   const start = Math.max(0, ref.line - 1 - 40);
-  return lines.slice(start, ref.line - 1 + 40).join('\n');
+  return header + lines.slice(start, ref.line - 1 + 40).join('\n');
 }
 
 function extractJson(text: string): unknown {

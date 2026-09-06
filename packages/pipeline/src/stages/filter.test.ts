@@ -79,7 +79,7 @@ describe('filter stage', () => {
     expect(result.items?.map((i) => i.id)).toEqual(['doc', 'policy', 'commit']);
     expect((result.items?.[1]?.meta as { filter: { topics: string[]; by: string } }).filter).toMatchObject({ topics: ['expense policy'], by: 'model' });
     expect((result.items?.[0]?.meta as { filter: { by: string } }).filter.by).toBe('rule');
-    expect(result.usage).toEqual({ cost_usd: 0.01, model_calls: 1, in_tokens: 150, out_tokens: 20 });
+    expect(result.usage).toEqual({ cost_usd: 0.01, model_calls: 1, in_tokens: 150, out_tokens: 20, cached_calls: 0 });
     expect(result.notes).toBeUndefined();
   });
 
