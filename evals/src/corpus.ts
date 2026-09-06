@@ -139,6 +139,7 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
     items.push({
       id: `gdrive:${d.id}`,
       source: 'gdrive',
+      kind: 'doc',
       external_ref: d.path,
       title: d.title,
       content: readFileSync(path.join(dir, d.path), 'utf8'),
@@ -169,6 +170,7 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
         items.push({
           id: `slack:${ref}`,
           source: 'slack',
+          kind: 'message',
           external_ref: ref,
           title: `#${conv.name} ${emailById.get(m.user) ?? m.user}`,
           content: m.text,
@@ -186,6 +188,7 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
     items.push({
       id: `zendesk:macro:${m.id}`,
       source: 'zendesk',
+      kind: 'macro',
       external_ref: `macro:${m.id}`,
       title: `Macro #${m.id}: ${m.title}`,
       content: m.actions.map((a) => a.value).join('\n'),
@@ -198,6 +201,7 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
     items.push({
       id: `zendesk:ticket:${t.id}`,
       source: 'zendesk',
+      kind: 'ticket',
       external_ref: `ticket:${t.id}`,
       title: `Ticket #${t.id}: ${t.subject}`,
       content: [t.description, ...t.comments.map((c) => `${c.author_email}: ${c.body}`)].join('\n\n'),
@@ -215,6 +219,7 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
     items.push({
       id: `github:file:${rel}`,
       source: 'github',
+      kind: 'file',
       external_ref: `repo/${rel}`,
       title: rel,
       content: readFileSync(file, 'utf8'),
@@ -227,6 +232,7 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
     items.push({
       id: `github:commit:${c.sha}`,
       source: 'github_commit',
+      kind: 'commit',
       external_ref: c.sha,
       title: `#${c.ordinal} ${c.subject}`,
       content: `${c.subject}\n\nAuthor: ${c.author}\nDate: ${c.date}`,

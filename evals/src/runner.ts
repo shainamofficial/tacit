@@ -10,6 +10,7 @@ import {
   evalPipeline,
   type EvalArtifact,
   type EvalPipeline,
+  type EvalSyncItem,
   type Finding,
   type StageName,
   type StageUsage,
@@ -18,13 +19,17 @@ import { z } from 'zod';
 import { SEED } from '../corpus/generator/world';
 import { EVALS_ROOT, loadCorpus, type LoadedCorpus } from './corpus';
 import { judgeFactuality } from './factuality';
+import { scoreFilter, type FilterScore } from './filter';
 import { ProbesSchema, checkArtifacts, probeServe, type Leak } from './permission';
+import { openEvalRun } from './run-record';
 import { scoreContradictions, scoreDrift, scoreTribal, type ContradictionScore, type DriftScore, type TribalScore } from './score';
 
 export type StageFilter = StageName | 'serve' | 'all';
 export const STAGE_FILTERS: readonly StageFilter[] = [...STAGE_ORDER, 'serve', 'all'];
 
 export const ThresholdsSchema = z.object({
+  filter_signal_recall: z.number().min(0).max(1),
+  filter_noise_rejection: z.number().min(0).max(1),
   contradiction_recall: z.number().min(0).max(1),
   contradiction_precision: z.number().min(0).max(1),
   drift_recall: z.number().min(0).max(1),
@@ -55,7 +60,11 @@ export interface StageReport {
   readonly ran: boolean;
   readonly artifacts: number;
   readonly findings: number;
+  /** items passed on to the next stage, when the stage narrows the set */
+  readonly kept: number | null;
   readonly usage: StageUsage;
+  readonly error?: string;
+  readonly notes: readonly string[];
 }
 
 export interface Scorecard {
@@ -69,6 +78,7 @@ export interface Scorecard {
   readonly failures: readonly string[];
   readonly notes: readonly string[];
   readonly detail: {
+    filter: FilterScore;
     contradictions: ContradictionScore;
     drift: DriftScore;
     tribal: TribalScore;
@@ -87,6 +97,7 @@ export interface RunOptions {
   readonly complete?: CompleteFn;
   readonly budgetUsd?: number;
   readonly factualitySample?: number;
+  readonly runId?: string;
   readonly log?: (msg: string) => void;
 }
 
@@ -107,8 +118,10 @@ function stagesToRun(filter: StageFilter): StageName[] {
 /** Which metric keys count toward pass/fail for a given --stage. Permission and cost always count. */
 function scoredKeys(filter: StageFilter): ReadonlySet<string> {
   const always = ['permission_leaks', 'compile_cost_usd'];
+  const filterKeys = ['filter_signal_recall', 'filter_noise_rejection'];
   switch (filter) {
     case 'filter':
+      return new Set([...always, ...filterKeys]);
     case 'extract':
       return new Set(always);
     case 'draft':
@@ -124,6 +137,7 @@ function scoredKeys(filter: StageFilter): ReadonlySet<string> {
     case 'all':
       return new Set([
         ...always,
+        ...filterKeys,
         'contradiction_recall',
         'contradiction_precision',
         'drift_recall',
@@ -143,35 +157,57 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   const probes = ProbesSchema.parse(JSON.parse(readFileSync(opts.probesPath ?? DEFAULT_PROBES_PATH, 'utf8')));
   const corpus: LoadedCorpus = loadCorpus({ log, ...(opts.corpusDir ? { dir: opts.corpusDir } : {}), ...(opts.manifestPath ? { manifestPath: opts.manifestPath } : {}) });
   const notes: string[] = [];
+  const budget = opts.budgetUsd ?? thresholds.compile_cost_usd_max;
+  // A real pipeline_runs row when a database is present, so model_calls logging has valid FKs.
+  const run = opts.runId ? { orgId: 'northwind', runId: opts.runId, close: async () => undefined } : await openEvalRun(filter, budget);
+  const runId = run.runId;
 
   // --- run stages in order
+  let items: readonly EvalSyncItem[] = corpus.items;
+  let filtered: readonly EvalSyncItem[] | null = null;
   let artifacts: EvalArtifact[] = [];
   let findings: Finding[] = [];
   let cost = 0;
   const stageReports: StageReport[] = [];
-  const budget = opts.budgetUsd ?? thresholds.compile_cost_usd_max;
   for (const name of STAGE_ORDER) {
     const runner = pipeline.stages[name];
     const shouldRun = stagesToRun(filter).includes(name);
     if (!runner || !shouldRun) {
-      stageReports.push({ name, implemented: Boolean(runner), ran: false, artifacts: 0, findings: 0, usage: ZERO_USAGE });
+      stageReports.push({ name, implemented: Boolean(runner), ran: false, artifacts: 0, findings: 0, kept: null, usage: ZERO_USAGE, notes: [] });
       continue;
     }
-    log(`stage ${name}: running`);
-    const result = await runner({ org_id: 'northwind', items: corpus.items, artifacts, findings, budget_usd: budget - cost });
-    artifacts = [...artifacts, ...result.artifacts];
-    findings = [...findings, ...result.findings];
-    cost += result.usage.cost_usd;
-    stageReports.push({ name, implemented: true, ran: true, artifacts: result.artifacts.length, findings: result.findings.length, usage: result.usage });
-    if (cost > budget) {
-      notes.push(`budget exceeded after ${name}: $${cost.toFixed(2)} > $${budget.toFixed(2)}; later stages skipped`);
+    log(`stage ${name}: running on ${items.length} items`);
+    try {
+      const result = await runner({ org_id: run.orgId, run_id: runId, items, artifacts, findings, budget_usd: budget - cost });
+      artifacts = [...artifacts, ...result.artifacts];
+      findings = [...findings, ...result.findings];
+      cost += result.usage.cost_usd;
+      if (result.items) {
+        items = result.items;
+        if (name === 'filter') filtered = result.items;
+      }
+      stageReports.push({ name, implemented: true, ran: true, artifacts: result.artifacts.length, findings: result.findings.length, kept: result.items ? result.items.length : null, usage: result.usage, notes: result.notes ?? [] });
+      if (cost > budget) {
+        notes.push(`budget exceeded after ${name}: $${cost.toFixed(2)} > $${budget.toFixed(2)}; later stages skipped`);
+        break;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      stageReports.push({ name, implemented: true, ran: true, artifacts: 0, findings: 0, kept: null, usage: ZERO_USAGE, error: message, notes: [] });
+      notes.push(`stage ${name} failed: ${message}; later stages skipped`);
       break;
+    }
+  }
+  for (const name of STAGE_ORDER) {
+    if (!stageReports.some((s) => s.name === name)) {
+      stageReports.push({ name, implemented: Boolean(pipeline.stages[name]), ran: false, artifacts: 0, findings: 0, kept: null, usage: ZERO_USAGE, notes: [] });
     }
   }
   const missing = stageReports.filter((s) => !s.implemented).map((s) => s.name);
   if (missing.length > 0) notes.push(`stages not implemented: ${missing.join(', ')}`);
 
   // --- grade
+  const filterScore = scoreFilter(corpus, filtered);
   const contradictions = scoreContradictions(corpus.manifest.defects, findings);
   const drift = scoreDrift(corpus.manifest.defects, findings);
   const tribal = scoreTribal(corpus.manifest.defects, findings, artifacts);
@@ -202,6 +238,8 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   const gte = (v: number | null, t: number): boolean => v !== null && v >= t;
 
   const metrics: Metric[] = [
+    metric('filter_signal_recall', 'Filter: signal recall', filterScore.signal_recall, filterScore.signal_recall === null ? 'n/a' : `${filterScore.must_keep_kept}/${filterScore.must_keep} (${pct(filterScore.signal_recall)})`, `≥ ${pct(thresholds.filter_signal_recall)}`, gte(filterScore.signal_recall, thresholds.filter_signal_recall), filterScore.dropped_signal.length ? `dropped: ${filterScore.dropped_signal.slice(0, 5).join(', ')}${filterScore.dropped_signal.length > 5 ? '…' : ''}` : undefined),
+    metric('filter_noise_rejection', 'Filter: noise rejection', filterScore.noise_rejection, filterScore.noise_rejection === null ? 'n/a' : `${filterScore.noise - filterScore.noise_kept}/${filterScore.noise} (${pct(filterScore.noise_rejection)})`, `≥ ${pct(thresholds.filter_noise_rejection)}`, gte(filterScore.noise_rejection, thresholds.filter_noise_rejection)),
     metric('contradiction_recall', 'Contradiction recall', contradictions.recall, `${contradictions.matched}/${contradictions.defects} (${pct(contradictions.recall)})`, `≥ ${pct(thresholds.contradiction_recall)}`, gte(contradictions.recall, thresholds.contradiction_recall)),
     metric('contradiction_precision', 'Contradiction precision', contradictions.precision, contradictions.precision === null ? 'n/a (no findings)' : `${contradictions.true_positives}/${contradictions.findings} (${pct(contradictions.precision)})`, `≥ ${pct(thresholds.contradiction_precision)}`, gte(contradictions.precision, thresholds.contradiction_precision)),
     metric('drift_recall', 'Drift recall', drift.recall, `${drift.matched}/${drift.defects} (${pct(drift.recall)})`, `≥ ${pct(thresholds.drift_recall)}`, gte(drift.recall, thresholds.drift_recall)),
@@ -213,7 +251,9 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   ];
 
   const failures = metrics.filter((m) => m.scored && !m.pass).map((m) => `${m.label}: ${m.display} (target ${m.target})`);
+  for (const s of stageReports) if (s.error) failures.push(`stage ${s.name} failed: ${s.error}`);
   const pass = failures.length === 0 && leaks.length === 0;
+  await run.close(stageReports.some((s) => s.error) ? 'failed' : 'succeeded', cost);
 
   return {
     stage: filter,
@@ -226,6 +266,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     failures,
     notes,
     detail: {
+      filter: filterScore,
       contradictions,
       drift,
       tribal,
@@ -246,13 +287,15 @@ export function renderScorecard(sc: Scorecard): string {
   }
   lines.push('');
   const ran = sc.stages.filter((s) => s.ran);
-  lines.push(`  stages: ${sc.stages.map((s) => `${s.name}${s.ran ? '✓' : s.implemented ? '·' : '✗'}`).join(' ')}   (✓ ran, · implemented but filtered out, ✗ not implemented)`);
-  if (ran.length > 0) {
-    for (const s of ran) lines.push(`    ${s.name}: ${s.artifacts} artifacts, ${s.findings} findings, ${s.usage.model_calls} calls, $${s.usage.cost_usd.toFixed(2)}`);
+  lines.push(`  stages: ${sc.stages.map((s) => `${s.name}${s.error ? '!' : s.ran ? '✓' : s.implemented ? '·' : '✗'}`).join(' ')}   (✓ ran, ! failed, · implemented but filtered out, ✗ not implemented)`);
+  for (const s of ran) {
+    const kept = s.kept !== null ? `, ${s.kept} items kept` : '';
+    lines.push(`    ${s.name}: ${s.error ? `FAILED: ${s.error}` : `${s.artifacts} artifacts, ${s.findings} findings${kept}, ${s.usage.model_calls} calls, $${s.usage.cost_usd.toFixed(2)}`}`);
+    for (const n of s.notes) lines.push(`      note: ${n}`);
   }
   for (const n of sc.notes) lines.push(`  note: ${n}`);
   for (const l of sc.leaks) lines.push(`  LEAK [${l.kind}]${l.defect_id ? ` ${l.defect_id}` : ''}: ${l.detail}`);
   lines.push('');
-  lines.push(sc.pass ? 'RESULT: PASS' : `RESULT: FAIL — ${sc.leaks.length > 0 ? `${sc.leaks.length} permission leak(s); ` : ''}${sc.failures.length} threshold(s) unmet`);
+  lines.push(sc.pass ? 'RESULT: PASS' : `RESULT: FAIL — ${sc.leaks.length > 0 ? `${sc.leaks.length} permission leak(s); ` : ''}${sc.failures.length} threshold(s)/stage(s) unmet`);
   return lines.join('\n');
 }

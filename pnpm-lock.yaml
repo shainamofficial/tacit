@@ -55,9 +55,16 @@ importers:
       '@tacit/pipeline':
         specifier: workspace:*
         version: link:../packages/pipeline
+      pg:
+        specifier: ^8.23.0
+        version: 8.23.0
       zod:
         specifier: ^4.5.4
         version: 4.5.4
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
 
   packages/agents: {}
 
@@ -170,8 +177,24 @@ importers:
       '@tacit/connector-core':
         specifier: workspace:*
         version: link:../connectors/core
+      '@tacit/gateway':
+        specifier: workspace:*
+        version: link:../gateway
+      '@tacit/prompts':
+        specifier: workspace:*
+        version: link:../prompts
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
 
-  packages/prompts: {}
+  packages/prompts:
+    dependencies:
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
 
   packages/schema:
     dependencies:

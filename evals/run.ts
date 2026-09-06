@@ -6,8 +6,15 @@
 // until the pipeline earns green.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { OUT_DIR } from './src/corpus';
+import { EVALS_ROOT, OUT_DIR } from './src/corpus';
 import { STAGE_FILTERS, renderScorecard, runEval, type StageFilter } from './src/runner';
+
+// Local convenience: credentials and DATABASE_URL from the repo-root .env (CI sets its own).
+try {
+  process.loadEnvFile(path.join(EVALS_ROOT, '..', '.env'));
+} catch {
+  // no .env: rely on the process environment
+}
 
 function arg(name: string): string | undefined {
   return process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
