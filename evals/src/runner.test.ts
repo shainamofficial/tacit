@@ -8,6 +8,7 @@ import type { Location, ManifestDefect } from '../corpus/generator/manifest';
 import { Q } from '../corpus/generator/plants';
 import { NOISE } from '../corpus/generator/slack';
 import { loadCorpus } from './corpus';
+import { oracleClaims } from './extract.test';
 import { runEval } from './runner';
 
 function refsFor(loc: Location): SourceRef[] {
@@ -52,6 +53,7 @@ function oraclePipeline(defects: readonly ManifestDefect[], distractors: readonl
     stages: {
       // A perfect filter: drops exactly the corpus's known chatter.
       filter: async (ctx) => ({ artifacts: [], findings: [], usage: { cost_usd: 0.4, model_calls: 3, in_tokens: 300, out_tokens: 30 }, items: ctx.items.filter((i) => !NOISE.includes(i.content)) }),
+      extract: async () => ({ artifacts: [], findings: [], usage: { cost_usd: 0.6, model_calls: 5, in_tokens: 500, out_tokens: 50 }, claims: oracleClaims(loadCorpus()) }),
       contradict: async () => ({ artifacts: [], findings: findings.filter((f) => f.kind !== 'drift'), usage: { cost_usd: 1.25, model_calls: 10, in_tokens: 1000, out_tokens: 100 } }),
       drift: async () => ({ artifacts, findings: findings.filter((f) => f.kind === 'drift'), usage: { cost_usd: 0.5, model_calls: 4, in_tokens: 400, out_tokens: 50 } }),
     },
@@ -103,6 +105,8 @@ describe('eval runner', () => {
     const byKey = new Map(sc.metrics.map((m) => [m.key, m]));
     expect(byKey.get('filter_signal_recall')?.value).toBe(1);
     expect(byKey.get('filter_noise_rejection')?.value).toBe(1);
+    expect(byKey.get('extract_source_coverage')?.value).toBe(1);
+    expect(sc.stages.find((s) => s.name === 'extract')?.claims).toBeGreaterThan(100);
     expect(sc.stages.find((s) => s.name === 'filter')?.kept).toBeLessThan(sc.corpus.items);
     expect(byKey.get('contradiction_recall')?.value).toBe(1);
     expect(byKey.get('contradiction_precision')?.value).toBe(1);
@@ -137,7 +141,7 @@ describe('eval runner', () => {
 
   it('--stage=contradict scores only contradiction/tribal metrics', async () => {
     const corpus = loadCorpus();
-    const sc = await runEval({ runId: 'test-run', stage: 'contradict', pipeline: oraclePipeline(corpus.manifest.defects, corpus.manifest.distractors) });
+    const sc = await runEval({ runId: 'test-run', stage: 'contradict', pipeline: oraclePipeline(corpus.manifest.defects, corpus.manifest.distractors), complete: alwaysSupported });
     expect(sc.stages.find((s) => s.name === 'drift')?.ran).toBe(false);
     expect(sc.metrics.find((m) => m.key === 'drift_recall')?.scored).toBe(false);
     expect(sc.metrics.find((m) => m.key === 'factuality')?.scored).toBe(false);

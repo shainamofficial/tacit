@@ -92,8 +92,15 @@ export async function judgeFactuality(
         { json: true, maxTokens: 200 },
       );
       cost += completion.cost_usd;
-      const verdict = Verdict.parse(extractJson(completion.text));
       judged += 1;
+      let verdict: z.infer<typeof Verdict>;
+      try {
+        verdict = Verdict.parse(extractJson(completion.text));
+      } catch {
+        // Model output is untrusted: an unparseable verdict counts against the claim, never crashes the run.
+        unsupported.push({ artifact_id: artifact.id, claim: claim.text, reason: 'judge output was not a valid verdict' });
+        continue;
+      }
       if (verdict.supported) supported += 1;
       else unsupported.push({ artifact_id: artifact.id, claim: claim.text, reason: verdict.reason });
     } catch (err) {
