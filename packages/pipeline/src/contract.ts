@@ -5,16 +5,18 @@
 // registered, then grades `findings` and `artifacts` against the manifest.
 // Nothing here touches the database: these are the pure in-memory shapes the
 // stages produce; the pg-boss workers wrap them.
+import type { Acl } from '@tacit/connector-core';
+
+export type { Acl };
 
 export type SourceKind = 'gdrive' | 'slack' | 'zendesk' | 'github';
-
-import type { Acl } from '@tacit/connector-core';
-export type { Acl };
 
 /** One synced source item as the eval sees it (mirrors the sync_items row). */
 export interface EvalSyncItem {
   readonly id: string;
   readonly source: SourceKind | 'github_commit';
+  /** doc | message | channel | macro | ticket | file | commit | repo | pull_request */
+  readonly kind?: string;
   /**
    * Stable reference used in SourceRef.ref:
    *   gdrive        → "drive/<Folder>/<slug>.md"
@@ -30,6 +32,8 @@ export interface EvalSyncItem {
   /** Permission-scope key this item contributes to an artifact's require_all (F-SEC-1). */
   readonly scope_key: string;
   readonly modified_at: string;
+  /** Stage annotations (e.g. filter decisions) carried to later stages. */
+  readonly meta?: Readonly<Record<string, unknown>>;
 }
 
 export interface SourceRef {
@@ -76,14 +80,19 @@ export interface StageResult {
   readonly artifacts: readonly EvalArtifact[];
   readonly findings: readonly Finding[];
   readonly usage: StageUsage;
+  /** When present, replaces the item set later stages see (filter output). */
+  readonly items?: readonly EvalSyncItem[];
+  readonly notes?: readonly string[];
 }
 
 export interface StageContext {
   readonly org_id: string;
+  readonly run_id: string;
   readonly items: readonly EvalSyncItem[];
   /** Everything produced by earlier stages in this run. */
   readonly artifacts: readonly EvalArtifact[];
   readonly findings: readonly Finding[];
+  /** Remaining budget for this run; stages pass it to the gateway as the hard cap. */
   readonly budget_usd: number;
 }
 
@@ -109,7 +118,7 @@ export interface EvalPipeline {
   readonly serve?: (req: ServeRequest, artifacts: readonly EvalArtifact[]) => Promise<ServeResponse>;
 }
 
-/** Stages register here as they land. Empty until Session 7. */
+/** Stages register here as they land. */
 export const evalPipeline: EvalPipeline = { stages: {} };
 
 export const ZERO_USAGE: StageUsage = { cost_usd: 0, model_calls: 0, in_tokens: 0, out_tokens: 0 };
