@@ -1,17 +1,37 @@
-// `pnpm eval [--stage=<filter|extract|draft|judge|contradict>]`
+// `pnpm eval [--stage=<filter|extract|draft|judge|contradict|drift|serve|all>] [--json] [--out=<file>]`
 //
-// PLACEHOLDER. Exits 1 on purpose until Phase 0 (docs/implementation-plan.md §4)
-// delivers the Northwind corpus (Session 2) and the real runner (Session 3).
-// CI on main is expected to be red on this step until then: evals gate
-// everything (CLAUDE.md non-negotiable #1, F-CMP-4), and a green placeholder
-// would be a lie.
+// The CI gate (F-CMP-4, CLAUDE.md #1). Exit 0 only when every scored metric
+// meets evals/golden/thresholds.json and there are zero permission leaks.
+// With no pipeline stages implemented this fails on purpose: main stays red
+// until the pipeline earns green.
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { OUT_DIR } from './src/corpus';
+import { STAGE_FILTERS, renderScorecard, runEval, type StageFilter } from './src/runner';
 
-const stageArg = process.argv.find((arg) => arg.startsWith('--stage='));
-const stage = stageArg?.slice('--stage='.length);
+function arg(name: string): string | undefined {
+  return process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+}
 
-console.error(
-  'Phase 0 incomplete: the Northwind corpus and golden set are not built yet' +
-    (stage ? ` (requested stage: ${stage})` : '') +
-    '. See docs/implementation-plan.md §4 and docs/claude-code-playbook.md Sessions 2-3.',
-);
-process.exit(1);
+const stageArg = arg('stage') ?? 'all';
+if (!STAGE_FILTERS.includes(stageArg as StageFilter)) {
+  console.error(`unknown --stage=${stageArg}; expected one of ${STAGE_FILTERS.join(', ')}`);
+  process.exit(2);
+}
+const json = process.argv.includes('--json');
+const outFile = arg('out') ?? path.join(OUT_DIR, 'scorecard.json');
+
+const scorecard = await runEval({
+  stage: stageArg as StageFilter,
+  log: json ? () => undefined : (msg) => console.error(msg),
+});
+
+mkdirSync(path.dirname(outFile), { recursive: true });
+writeFileSync(outFile, `${JSON.stringify(scorecard, null, 2)}\n`);
+
+if (json) console.log(JSON.stringify(scorecard, null, 2));
+else {
+  console.log(renderScorecard(scorecard));
+  console.log(`\nscorecard json: ${outFile}`);
+}
+process.exitCode = scorecard.pass ? 0 : 1;

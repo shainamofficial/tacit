@@ -1,0 +1,11 @@
+{
+  "$comment": "Scorecard targets from evals/corpus/SPEC.md §5. PROPOSE-ONLY (CLAUDE.md #1): never lower a value to make a run pass; ratchet upward via PR with an ADR.",
+  "contradiction_recall": 0.8,
+  "contradiction_precision": 0.7,
+  "drift_recall": 0.9,
+  "tribal_surfaced_with_knower": 0.6,
+  "false_assertions_max": 0,
+  "permission_leaks_max": 0,
+  "factuality": 0.95,
+  "compile_cost_usd_max": 15
+}
