@@ -13,7 +13,7 @@ const item = (over: Partial<EvalSyncItem> & { id: string; source: EvalSyncItem['
   ...over,
 });
 
-const ctx = (items: EvalSyncItem[], budget = 5): StageContext => ({ org_id: 'org', run_id: 'run', items, artifacts: [], findings: [], budget_usd: budget });
+const ctx = (items: EvalSyncItem[], budget = 5): StageContext => ({ org_id: 'org', run_id: 'run', items, claims: [], artifacts: [], findings: [], budget_usd: budget });
 
 const completion = (text: string): Completion => ({
   text,
