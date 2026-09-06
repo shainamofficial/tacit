@@ -5,9 +5,20 @@
   "description": "GitHub App connector: repo tree, PRs, CODEOWNERS, merge webhook (F-ING-2, F-CODE-2). Session 5",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/corpus-api.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tacit/connector-core": "workspace:*",
+    "octokit": "^5.0.5",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@tacit/evals": "workspace:*",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.0"
   }
 }
