@@ -40,9 +40,14 @@ describe.skipIf(!hasKey)('AnthropicProvider contract (live API)', () => {
     ];
     const first = await gw.complete('filter', messages, { runId: 'cache' });
     const second = await gw.complete('filter', messages, { runId: 'cache' });
-    expect(first.usage.cache_write_tokens + first.usage.cache_read_tokens).toBeGreaterThan(0);
+    // The first call may itself be a cache hit if the prefix is still warm from a
+    // previous run, so only the second call's behavior is asserted strictly.
+    expect(first.usage.cache_write_tokens + first.usage.cache_read_tokens).toBeGreaterThan(1000);
     expect(second.usage.cache_read_tokens).toBeGreaterThan(1000);
-    expect(second.cost_usd).toBeLessThan(first.cost_usd);
+    expect(second.usage.cache_write_tokens).toBe(0);
+    const pricing = gw.routing.models[second.model];
+    const uncached = ((second.usage.in_tokens + second.usage.cache_read_tokens) * (pricing?.input_per_mtok ?? 0) + second.usage.out_tokens * (pricing?.output_per_mtok ?? 0)) / 1e6;
+    expect(second.cost_usd).toBeLessThan(uncached);
     expect(gw.ledger.get('cache')).toBeCloseTo(first.cost_usd + second.cost_usd, 10);
   }, 90_000);
 });
