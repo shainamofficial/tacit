@@ -1,8 +1,8 @@
-// Artifact factuality, rubric-judged through the gateway at temperature 0
+// Artifact factuality, rubric-judged through the gateway at low effort
 // (SPEC §5: ≥95% of sampled claims supported by their cited provenance).
 // Model output is untrusted input: parsed with zod, never cast.
 import type { EvalArtifact, EvalClaim, SourceRef } from '@tacit/pipeline';
-import { GatewayNotImplementedError, type CompleteFn } from '@tacit/gateway';
+import { GatewayUnavailableError, type CompleteFn } from '@tacit/gateway';
 import { z } from 'zod';
 import { Rng } from '../corpus/generator/rng';
 import type { LoadedCorpus } from './corpus';
@@ -89,7 +89,7 @@ export async function judgeFactuality(
           { role: 'system', content: RUBRIC },
           { role: 'user', content: `CLAIM: ${claim.text}\n\n${sources.join('\n\n')}` },
         ],
-        { temperature: 0, json: true, maxTokens: 200 },
+        { json: true, maxTokens: 200 },
       );
       cost += completion.cost_usd;
       const verdict = Verdict.parse(extractJson(completion.text));
@@ -97,8 +97,8 @@ export async function judgeFactuality(
       if (verdict.supported) supported += 1;
       else unsupported.push({ artifact_id: artifact.id, claim: claim.text, reason: verdict.reason });
     } catch (err) {
-      if (err instanceof GatewayNotImplementedError) {
-        return { value: null, judged: 0, supported: 0, unsupported: [], cost_usd: cost, note: 'gateway not implemented (Session 4); factuality cannot be judged yet' };
+      if (err instanceof GatewayUnavailableError) {
+        return { value: null, judged: 0, supported: 0, unsupported: [], cost_usd: cost, note: `gateway unavailable: ${err.message}` };
       }
       throw err;
     }

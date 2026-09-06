@@ -63,6 +63,7 @@ const alwaysSupported: CompleteFn = async () => ({
   usage: { in_tokens: 10, out_tokens: 5, cache_read_tokens: 0, cache_write_tokens: 0 },
   cost_usd: 0.001,
   latency_ms: 1,
+  stop_reason: 'end_turn',
 });
 
 describe('eval runner', () => {
@@ -83,7 +84,7 @@ describe('eval runner', () => {
     const sc = await runEval({ pipeline: oraclePipeline(corpus.manifest.defects, corpus.manifest.distractors) });
     const factuality = sc.metrics.find((m) => m.key === 'factuality');
     expect(factuality?.value).toBeNull();
-    expect(factuality?.note).toContain('gateway not implemented');
+    expect(factuality?.note).toContain('gateway unavailable');
     expect(sc.pass).toBe(false);
     expect(sc.failures).toHaveLength(1);
     expect(sc.leaks).toHaveLength(0);
