@@ -12,3 +12,6 @@ coverage/
 
 # Generated Northwind corpus (rebuild with pnpm corpus:build; manifest.json is committed)
 evals/corpus/generated/
+
+# Eval scorecards
+evals/out/

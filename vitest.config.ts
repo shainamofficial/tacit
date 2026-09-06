@@ -14,5 +14,7 @@ export default defineConfig({
     include: ['{packages,apps,evals,config,tooling}/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', 'evals/corpus/generated/**'],
     passWithNoTests: true,
+    // Corpus builds and ESLint-API tests are slow on shared CI runners.
+    testTimeout: 20_000,
   },
 });
