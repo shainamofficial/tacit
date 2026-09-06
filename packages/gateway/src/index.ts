@@ -1,51 +1,78 @@
 // @tacit/gateway — the only package allowed to import LLM SDKs (CLAUDE.md #3, F-CMP-3).
 //
-// Session 4 implements this: per-stage routing from routing.yaml, Anthropic
-// provider, prompt caching, fallbacks, cost/latency logging to model_calls.
-// Until then `complete` throws GatewayNotImplementedError so callers (the eval
-// factuality judge, for one) can report "unavailable" instead of faking it.
+// complete(stage, messages, opts): routes by stage via routing.yaml, caches the
+// system prompt, fails over on transient errors, prices every call from the
+// routing pricing table, logs to model_calls, and enforces per-run budgets.
+import pg from 'pg';
+import { AnthropicProvider, isCredentialsError } from './anthropic';
+import { createGateway, type CompleteFn, type Gateway } from './gateway';
+import { PgModelCallLogger, type ModelCallLogger } from './logger';
 
-export type Stage = 'filter' | 'extract' | 'draft' | 'judge' | 'contradict' | 'interview' | 'eval_judge';
+export { AnthropicProvider } from './anthropic';
+export { BudgetExceededError, SpendLedger } from './budget';
+export {
+  createGateway,
+  GatewayExhaustedError,
+  GatewayRequestError,
+  type CallLine,
+  type CompleteFn,
+  type CompleteOptions,
+  type Completion,
+  type Gateway,
+  type GatewayOptions,
+} from './gateway';
+export { MemoryLogger, PgModelCallLogger, type ModelCallLogger, type ModelCallRecord, type Queryable } from './logger';
+export {
+  ProviderCredentialsError,
+  ProviderRefusalError,
+  ProviderRetryableError,
+  type Message,
+  type Provider,
+  type ProviderRequest,
+  type ProviderResponse,
+  type Usage,
+} from './provider';
+export { EFFORTS, STAGES, isStage, loadRouting, parseRouting, resolveRoute, ROUTING_PATH, RoutingSchema, type Effort, type Pricing, type Routing, type Stage } from './routing';
 
-export interface Message {
-  readonly role: 'system' | 'user' | 'assistant';
-  readonly content: string;
-}
-
-export interface CompleteOptions {
-  readonly temperature?: number;
-  readonly maxTokens?: number;
-  /** Ask the provider for a JSON object response; callers still parse with zod. */
-  readonly json?: boolean;
-  readonly runId?: string;
-  readonly orgId?: string;
-}
-
-export interface Usage {
-  readonly in_tokens: number;
-  readonly out_tokens: number;
-  readonly cache_read_tokens: number;
-  readonly cache_write_tokens: number;
-}
-
-export interface Completion {
-  readonly text: string;
-  readonly provider: string;
-  readonly model: string;
-  readonly usage: Usage;
-  readonly cost_usd: number;
-  readonly latency_ms: number;
-}
-
-export type CompleteFn = (stage: Stage, messages: readonly Message[], opts?: CompleteOptions) => Promise<Completion>;
-
-export class GatewayNotImplementedError extends Error {
-  constructor() {
-    super('@tacit/gateway is not implemented yet (Session 4); no model calls are possible');
-    this.name = 'GatewayNotImplementedError';
+/** No credentials (or rejected ones): the gateway cannot make model calls in this environment. */
+export class GatewayUnavailableError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'GatewayUnavailableError';
   }
 }
 
-export const complete: CompleteFn = async () => {
-  throw new GatewayNotImplementedError();
+let defaultGateway: Gateway | undefined;
+
+/**
+ * The process-wide gateway: Anthropic credentials from the environment,
+ * model_calls logging when DATABASE_URL is set. Built lazily on first call.
+ */
+export function defaultGatewayInstance(): Gateway {
+  if (defaultGateway) return defaultGateway;
+  let provider: AnthropicProvider;
+  try {
+    provider = AnthropicProvider.fromEnv();
+  } catch (err) {
+    throw new GatewayUnavailableError(
+      'gateway unavailable: no Anthropic credentials (set ANTHROPIC_API_KEY or run `ant auth login`)',
+      { cause: err },
+    );
+  }
+  let logger: ModelCallLogger | undefined;
+  const databaseUrl = process.env.DATABASE_URL;
+  if (databaseUrl) logger = new PgModelCallLogger(new pg.Pool({ connectionString: databaseUrl }));
+  defaultGateway = createGateway({ provider, ...(logger ? { logger } : {}) });
+  return defaultGateway;
+}
+
+export const complete: CompleteFn = async (stage, messages, opts) => {
+  try {
+    return await defaultGatewayInstance().complete(stage, messages, opts);
+  } catch (err) {
+    if (isCredentialsError(err)) {
+      throw new GatewayUnavailableError(`gateway unavailable: ${err.message}`, { cause: err });
+    }
+    throw err;
+  }
 };
