@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['{packages,apps,evals,config,tooling}/**/*.test.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', 'evals/corpus/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', 'evals/corpus/generated/**'],
     passWithNoTests: true,
   },
 });

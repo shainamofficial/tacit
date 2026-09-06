@@ -1,5 +1,11 @@
 {
   "extends": "../tsconfig.base.json",
-  "include": ["*.ts", "src"],
-  "exclude": ["corpus"]
+  "include": [
+    "*.ts",
+    "src",
+    "corpus/generator"
+  ],
+  "exclude": [
+    "corpus/generated"
+  ]
 }
