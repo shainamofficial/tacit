@@ -8,7 +8,8 @@
 
 export type SourceKind = 'gdrive' | 'slack' | 'zendesk' | 'github';
 
-export type Acl = { kind: 'domain'; domain: string } | { kind: 'users'; emails: string[] };
+import type { Acl } from '@tacit/connector-core';
+export type { Acl };
 
 /** One synced source item as the eval sees it (mirrors the sync_items row). */
 export interface EvalSyncItem {

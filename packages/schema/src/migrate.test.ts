@@ -46,14 +46,16 @@ describe.skipIf(!baseUrl)('migrate against Postgres (integration; needs DATABASE
     await client?.end();
   });
 
-  it('applies 0001_init.sql cleanly and is a no-op on re-run', async () => {
+  it('applies every migration in order and is a no-op on re-run', async () => {
+    const names = (await loadMigrations()).map((m) => m.name);
+    expect(names[0]).toBe('0001_init.sql');
     const first = await migrate(client);
-    expect(first.applied).toEqual(['0001_init.sql']);
+    expect(first.applied).toEqual(names);
     expect(first.skipped).toEqual([]);
 
     const second = await migrate(client);
     expect(second.applied).toEqual([]);
-    expect(second.skipped).toEqual(['0001_init.sql']);
+    expect(second.skipped).toEqual(names);
   });
 
   it('creates every table from implementation-plan §8', async () => {
@@ -73,6 +75,8 @@ describe.skipIf(!baseUrl)('migrate against Postgres (integration; needs DATABASE
       'validation_graph',
       'pipeline_runs',
       'model_calls',
+      'sync_item_content',
+      'quarantined_spans',
     ]) {
       expect(names, `missing table ${table}`).toContain(table);
     }
