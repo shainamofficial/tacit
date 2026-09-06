@@ -10,9 +10,13 @@
   "dependencies": {
     "@tacit/gateway": "workspace:*",
     "@tacit/pipeline": "workspace:*",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "pg": "^8.23.0"
   },
   "exports": {
     "./corpus": "./src/corpus.ts"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }

@@ -51,7 +51,7 @@ interface Draft {
   reactions?: Array<{ name: string; users: PersonKey[] }>;
 }
 
-const NOISE = [
+export const NOISE = [
   'lunch at 12:30? thinking the taco place',
   'anyone else getting VPN drops this morning?',
   'coffee machine on 3 is broken again :coffee: :sob:',
