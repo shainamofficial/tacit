@@ -9,6 +9,11 @@ import {
   type ProviderResponse,
 } from './provider';
 
+/** The server-side `fallbacks` parameter is accepted on Opus 5 and Fable; Sonnet/Haiku return 400. */
+export function supportsServerFallback(model: string): boolean {
+  return model.startsWith('claude-opus-5') || model.startsWith('claude-fable') || model.startsWith('claude-mythos');
+}
+
 export class AnthropicProvider implements Provider {
   readonly name = 'anthropic';
 
@@ -27,9 +32,8 @@ export class AnthropicProvider implements Provider {
       // Thinking is adaptive by default on current models; effort controls depth.
       output_config: { effort: req.effort },
       // Server-side refusal fallback: a policy decline re-runs on a fallback model
-      // inside the same call. The served model is reported in response.model.
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
+      // inside the same call. Opus 5 / Fable only; other models reject the parameter.
+      ...(supportsServerFallback(req.model) ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {}),
     };
     if (req.system !== undefined) {
       params.system = [
