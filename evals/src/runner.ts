@@ -33,6 +33,7 @@ export const ThresholdsSchema = z.object({
   filter_signal_recall: z.number().min(0).max(1),
   filter_noise_rejection: z.number().min(0).max(1),
   extract_source_coverage: z.number().min(0).max(1),
+  draft_source_coverage: z.number().min(0).max(1),
   contradiction_recall: z.number().min(0).max(1),
   contradiction_precision: z.number().min(0).max(1),
   drift_recall: z.number().min(0).max(1),
@@ -84,6 +85,7 @@ export interface Scorecard {
   readonly detail: {
     filter: FilterScore;
     extract: ExtractScore;
+    draft: ExtractScore;
     contradictions: ContradictionScore;
     drift: DriftScore;
     tribal: TribalScore;
@@ -130,7 +132,7 @@ function scoredKeys(filter: StageFilter): ReadonlySet<string> {
     case 'extract':
       return new Set([...always, 'extract_source_coverage', 'factuality']);
     case 'draft':
-      return new Set([...always, 'factuality']);
+      return new Set([...always, 'draft_source_coverage', 'factuality']);
     case 'judge':
       return new Set([...always, 'factuality', 'false_assertions']);
     case 'contradict':
@@ -144,6 +146,7 @@ function scoredKeys(filter: StageFilter): ReadonlySet<string> {
         ...always,
         ...filterKeys,
         'extract_source_coverage',
+        'draft_source_coverage',
         'contradiction_recall',
         'contradiction_precision',
         'drift_recall',
@@ -221,6 +224,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   // --- grade
   const filterScore = scoreFilter(corpus, filtered);
   const extractScore = scoreExtract(corpus, extracted);
+  const draftScore = scoreExtract(corpus, stageReports.some((s) => s.name === 'draft' && s.ran && !s.error) ? artifacts.flatMap((a) => a.claims) : null);
   const contradictions = scoreContradictions(corpus.manifest.defects, findings);
   const drift = scoreDrift(corpus.manifest.defects, findings);
   const tribal = scoreTribal(corpus.manifest.defects, findings, artifacts);
@@ -260,6 +264,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     metric('filter_signal_recall', 'Filter: signal recall', filterScore.signal_recall, filterScore.signal_recall === null ? 'n/a' : `${filterScore.must_keep_kept}/${filterScore.must_keep} (${pct(filterScore.signal_recall)})`, `≥ ${pct(thresholds.filter_signal_recall)}`, gte(filterScore.signal_recall, thresholds.filter_signal_recall), filterScore.dropped_signal.length ? `dropped: ${filterScore.dropped_signal.slice(0, 5).join(', ')}${filterScore.dropped_signal.length > 5 ? '…' : ''}` : undefined),
     metric('filter_noise_rejection', 'Filter: noise rejection', filterScore.noise_rejection, filterScore.noise_rejection === null ? 'n/a' : `${filterScore.noise - filterScore.noise_kept}/${filterScore.noise} (${pct(filterScore.noise_rejection)})`, `≥ ${pct(thresholds.filter_noise_rejection)}`, gte(filterScore.noise_rejection, thresholds.filter_noise_rejection)),
     metric('extract_source_coverage', 'Extract: source coverage', extractScore.source_coverage, extractScore.source_coverage === null ? 'n/a' : `${extractScore.covered}/${extractScore.locations} (${pct(extractScore.source_coverage)}; ${extractScore.claims} claims)`, `≥ ${pct(thresholds.extract_source_coverage)}`, gte(extractScore.source_coverage, thresholds.extract_source_coverage), extractScore.uncovered_sample.length ? `uncovered: ${extractScore.uncovered_sample.slice(0, 4).join('; ')}${extractScore.uncovered_sample.length > 4 ? '…' : ''}` : undefined),
+    metric('draft_source_coverage', 'Draft: source coverage', draftScore.source_coverage, draftScore.source_coverage === null ? 'n/a' : `${draftScore.covered}/${draftScore.locations} (${pct(draftScore.source_coverage)}; ${artifacts.length} artifacts)`, `≥ ${pct(thresholds.draft_source_coverage)}`, gte(draftScore.source_coverage, thresholds.draft_source_coverage), draftScore.uncovered_sample.length ? `uncovered: ${draftScore.uncovered_sample.slice(0, 4).join('; ')}${draftScore.uncovered_sample.length > 4 ? '…' : ''}` : undefined),
     metric('contradiction_recall', 'Contradiction recall', contradictions.recall, `${contradictions.matched}/${contradictions.defects} (${pct(contradictions.recall)})`, `≥ ${pct(thresholds.contradiction_recall)}`, gte(contradictions.recall, thresholds.contradiction_recall)),
     metric('contradiction_precision', 'Contradiction precision', contradictions.precision, contradictions.precision === null ? 'n/a (no findings)' : `${contradictions.true_positives}/${contradictions.findings} (${pct(contradictions.precision)})`, `≥ ${pct(thresholds.contradiction_precision)}`, gte(contradictions.precision, thresholds.contradiction_precision)),
     metric('drift_recall', 'Drift recall', drift.recall, `${drift.matched}/${drift.defects} (${pct(drift.recall)})`, `≥ ${pct(thresholds.drift_recall)}`, gte(drift.recall, thresholds.drift_recall)),
@@ -288,6 +293,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     detail: {
       filter: filterScore,
       extract: extractScore,
+      draft: draftScore,
       contradictions,
       drift,
       tribal,

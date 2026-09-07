@@ -2,13 +2,14 @@
 // with zero leaks; a pipeline that reproduces the answer key must pass every
 // recall metric; a leaky pipeline must be a hard fail regardless of recall.
 import { GatewayUnavailableError, type CompleteFn } from '@tacit/gateway';
-import type { EvalArtifact, EvalPipeline, Finding, SourceRef } from '@tacit/pipeline';
+import type { EvalArtifact, EvalPipeline, ExtractedClaim, Finding, SourceRef } from '@tacit/pipeline';
 import { describe, expect, it } from 'vitest';
 import type { Location, ManifestDefect } from '../corpus/generator/manifest';
 import { Q } from '../corpus/generator/plants';
 import { NOISE } from '../corpus/generator/slack';
 import { loadCorpus } from './corpus';
 import { oracleClaims } from './extract.test';
+import { locationKeys } from './match';
 import { runEval } from './runner';
 
 function refsFor(loc: Location): SourceRef[] {
@@ -39,23 +40,38 @@ function oraclePipeline(defects: readonly ManifestDefect[], distractors: readonl
       findings.push({ kind: 'low_confidence', refs, summary: d.topic, suggested_knowers: d.expected.knowers });
     }
   }
-  // Artifacts from distractor facts (consistent, public) — cited and correctly scoped.
-  const artifacts: EvalArtifact[] = distractors.map((x, i) => ({
-    id: `art_${i}`,
-    type: 'qa_fact',
-    title: x.topic,
-    body_md: x.topic,
-    claims: x.sources.map((loc) => ({ text: ('quote' in loc && loc.quote) || x.topic, provenance: refsFor(loc), confidence: 0.9 })),
-    permission_scope: { require_all: ['github:repo:northwind'] },
-    verification_state: 'machine_consistent',
-  }));
+  // Perfect draft: one artifact per defect/distractor from the extracted claims of its sources,
+  // scoped to every cited source's scope key; tribal claims stay low-confidence.
+  const draft = (claims: readonly ExtractedClaim[]): EvalArtifact[] => {
+    const corpus = loadCorpus();
+    // Anything citing an item that also carries a tribal hint stays low-confidence (must_not_assert).
+    const tribalItems = new Set(
+      defects.filter((d) => d.kind === 'tribal').flatMap((d) => d.sources.flatMap((loc) => locationKeys(loc)).map((k) => corpus.byRef.get(k)?.id)),
+    );
+    return [...defects, ...distractors].flatMap((d, i) => {
+      const itemIds = new Set(d.sources.flatMap((loc) => locationKeys(loc)).map((k) => corpus.byRef.get(k)?.id).filter((id): id is string => id !== undefined));
+      const cs = claims.filter((c) => itemIds.has(c.item_id));
+      if (cs.length === 0) return [];
+      const artifact: EvalArtifact = {
+        id: `art_${i}`,
+        type: 'qa_fact',
+        title: d.topic,
+        body_md: d.topic,
+        claims: cs.map((c) => ({ text: c.text, provenance: c.provenance, confidence: d.kind === 'tribal' || tribalItems.has(c.item_id) ? 0.4 : 0.9 })),
+        permission_scope: { require_all: [...new Set(cs.map((c) => c.scope_key))].sort() },
+        verification_state: 'machine_consistent',
+      };
+      return [artifact];
+    });
+  };
   return {
     stages: {
       // A perfect filter: drops exactly the corpus's known chatter.
       filter: async (ctx) => ({ artifacts: [], findings: [], usage: { cost_usd: 0.4, model_calls: 3, in_tokens: 300, out_tokens: 30 }, items: ctx.items.filter((i) => !NOISE.includes(i.content)) }),
       extract: async () => ({ artifacts: [], findings: [], usage: { cost_usd: 0.6, model_calls: 5, in_tokens: 500, out_tokens: 50 }, claims: oracleClaims(loadCorpus()) }),
       contradict: async () => ({ artifacts: [], findings: findings.filter((f) => f.kind !== 'drift'), usage: { cost_usd: 1.25, model_calls: 10, in_tokens: 1000, out_tokens: 100 } }),
-      drift: async () => ({ artifacts, findings: findings.filter((f) => f.kind === 'drift'), usage: { cost_usd: 0.5, model_calls: 4, in_tokens: 400, out_tokens: 50 } }),
+      draft: async (ctx) => ({ artifacts: draft(ctx.claims), findings: [], usage: { cost_usd: 0.3, model_calls: 2, in_tokens: 200, out_tokens: 50 } }),
+      drift: async () => ({ artifacts: [], findings: findings.filter((f) => f.kind === 'drift'), usage: { cost_usd: 0.5, model_calls: 4, in_tokens: 400, out_tokens: 50 } }),
     },
     serve: async () => ({ answer: 'I do not have information on that.', refs: [], artifact_ids: [] }),
   };
@@ -106,6 +122,8 @@ describe('eval runner', () => {
     expect(byKey.get('filter_signal_recall')?.value).toBe(1);
     expect(byKey.get('filter_noise_rejection')?.value).toBe(1);
     expect(byKey.get('extract_source_coverage')?.value).toBe(1);
+    expect(byKey.get('draft_source_coverage')?.value).toBe(1);
+    expect(sc.stages.find((s) => s.name === 'draft')?.artifacts).toBeGreaterThan(50);
     expect(sc.stages.find((s) => s.name === 'extract')?.claims).toBeGreaterThan(100);
     expect(sc.stages.find((s) => s.name === 'filter')?.kept).toBeLessThan(sc.corpus.items);
     expect(byKey.get('contradiction_recall')?.value).toBe(1);

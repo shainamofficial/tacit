@@ -1,6 +1,6 @@
 // Extract-stage metric: every manifest source location (a planted quote) must
 // be covered by at least one extracted claim whose provenance points at it.
-import type { ExtractedClaim } from '@tacit/pipeline';
+import type { SourceRef } from '@tacit/pipeline';
 import type { Location } from '../corpus/generator/manifest';
 import type { LoadedCorpus } from './corpus';
 import { locationKeys, refMatchesLocation } from './match';
@@ -18,7 +18,7 @@ function describe(defectId: string, loc: Location): string {
   return `${defectId} ${locationKeys(loc)[0] ?? loc.kind}`;
 }
 
-export function scoreExtract(corpus: LoadedCorpus, claims: readonly ExtractedClaim[] | null): ExtractScore {
+export function scoreExtract(corpus: LoadedCorpus, claims: ReadonlyArray<{ readonly provenance: readonly SourceRef[] }> | null): ExtractScore {
   const targets: Array<{ defectId: string; loc: Location }> = [];
   for (const d of [...corpus.manifest.defects, ...corpus.manifest.distractors]) {
     for (const loc of d.sources) if (loc.kind !== 'github_commit_series') targets.push({ defectId: d.id, loc });
