@@ -4,7 +4,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { z } from 'zod';
 
-export const STAGES = ['filter', 'extract', 'draft', 'judge', 'contradict', 'interview', 'eval_judge'] as const;
+export const STAGES = ['filter', 'extract', 'draft', 'judge', 'contradict', 'contradict_verify', 'interview', 'eval_judge'] as const;
 export type Stage = (typeof STAGES)[number];
 
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;

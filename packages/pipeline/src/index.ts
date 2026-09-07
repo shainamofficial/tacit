@@ -4,6 +4,7 @@
 import { complete as gatewayComplete } from '@tacit/gateway';
 import { cachedGatewayComplete } from './cache';
 import { evalPipeline } from './contract';
+import { createContradictStage } from './stages/contradict';
 import { createDraftStage } from './stages/draft';
 import { createExtractStage } from './stages/extract';
 import { createJudgeStage } from './stages/judge';
@@ -11,6 +12,7 @@ import { createFilterStage } from './stages/filter';
 
 export * from './contract';
 export { FileCompletionCache, cacheKey, cachedGatewayComplete, wasCached } from './cache';
+export { capClaims, createContradictStage, groupByTopic, isCodeRef, resolveKnower, type ContradictDeps, type ContradictStats, type Topic } from './stages/contradict';
 export { createDraftStage, mergeClaims, normalizeSubject, variantsFor, type DraftDeps, type MergedClaim, type Variant } from './stages/draft';
 export { batchItems, createExtractStage, locateQuote, type ExtractDeps } from './stages/extract';
 export { drain, parseWithSalvage } from './json';
@@ -24,3 +26,4 @@ evalPipeline.stages.filter = createFilterStage({ complete });
 evalPipeline.stages.extract = createExtractStage({ complete });
 evalPipeline.stages.draft = createDraftStage({ complete });
 evalPipeline.stages.judge = createJudgeStage({ complete });
+evalPipeline.stages.contradict = createContradictStage({ complete });

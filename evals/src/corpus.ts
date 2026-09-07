@@ -4,7 +4,7 @@
 // the committed manifest — the answer key and the corpus must agree.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import type { Acl, EvalSyncItem } from '@tacit/pipeline';
+import type { Acl, DirectoryPerson, EvalSyncItem } from '@tacit/pipeline';
 import { build, digestTree } from '../corpus/generator/build';
 import type { Manifest } from '../corpus/generator/manifest';
 
@@ -23,6 +23,8 @@ export interface LoadedCorpus {
   readonly restrictedScopeByRef: ReadonlyMap<string, string>;
   /** scope key → emails allowed (undefined = whole domain) */
   readonly scopeMembers: ReadonlyMap<string, ReadonlySet<string> | undefined>;
+  /** Org directory from the Slack export's users.json (what the Slack connector captures via users.list). */
+  readonly people: readonly DirectoryPerson[];
 }
 
 export function refKeyOf(kind: string, ref: string): string {
@@ -55,7 +57,9 @@ interface DriveIndexEntry {
 
 interface SlackUser {
   id: string;
-  profile: { email: string };
+  name: string;
+  real_name: string;
+  profile: { email: string; title?: string };
 }
 interface SlackChannel {
   id: string;
@@ -152,6 +156,7 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
   // --- Slack
   const users = readJson<SlackUser[]>(path.join(dir, 'slack/users.json'));
   const emailById = new Map(users.map((u) => [u.id, u.profile.email] as const));
+  const people: DirectoryPerson[] = users.map((u) => ({ name: u.real_name, email: u.profile.email, handle: u.name, ...(u.profile.title ? { title: u.profile.title } : {}) }));
   const conversations: Array<{ name: string; dirName: string; scope: string; acl: Acl }> = [];
   for (const c of readJson<SlackChannel[]>(path.join(dir, 'slack/channels.json'))) {
     const acl: Acl = c.is_private ? { kind: 'users', emails: c.members.map((m) => emailById.get(m) ?? m) } : DOMAIN_ACL;
@@ -248,7 +253,7 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
     if (i.acl.kind === 'users') restrictedScopeByRef.set(refKeyOf(i.source, i.external_ref), i.scope_key);
   }
   log(`corpus: ${items.length} items (${restrictedScopeByRef.size} restricted)`);
-  return { dir, manifest, items, byRef, restrictedScopeByRef, scopeMembers };
+  return { dir, manifest, items, byRef, restrictedScopeByRef, scopeMembers, people };
 }
 
 /** Can this user read an item with the given scope key? Domain-wide scopes are visible to everyone. */
