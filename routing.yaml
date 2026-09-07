@@ -61,10 +61,18 @@ stages:
     max_tokens: 8192
     fallbacks: []
   contradict:
+    # Discovery of non-obvious conflicts and implied knowledge stays frontier (PRD §7.2 step 5).
     model: claude-opus-5
     effort: xhigh
     max_tokens: 8192
     fallbacks: []
+  contradict_verify:
+    # Pairwise "does X contradict Y" against source excerpts runs mid-tier (PRD §7.2 step 5);
+    # the fallback is an upgrade, never a downgrade.
+    model: claude-sonnet-5
+    effort: medium
+    max_tokens: 4096
+    fallbacks: [claude-opus-5]
   interview:
     model: claude-opus-5
     effort: high
