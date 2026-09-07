@@ -71,6 +71,8 @@ function oraclePipeline(defects: readonly ManifestDefect[], distractors: readonl
       extract: async () => ({ artifacts: [], findings: [], usage: { cost_usd: 0.6, model_calls: 5, in_tokens: 500, out_tokens: 50 }, claims: oracleClaims(loadCorpus()) }),
       contradict: async () => ({ artifacts: [], findings: findings.filter((f) => f.kind !== 'drift'), usage: { cost_usd: 1.25, model_calls: 10, in_tokens: 1000, out_tokens: 100 } }),
       draft: async (ctx) => ({ artifacts: draft(ctx.claims), findings: [], usage: { cost_usd: 0.3, model_calls: 2, in_tokens: 200, out_tokens: 50 } }),
+      // Perfect judge: approves everything, replacing the artifact set without duplicating it.
+      judge: async (ctx) => ({ artifacts: ctx.artifacts.map((a) => ({ ...a, verification_state: 'machine_consistent' as const })), replace_artifacts: true, findings: [], usage: { cost_usd: 0.5, model_calls: 4, in_tokens: 400, out_tokens: 40 }, stats: { approve: ctx.artifacts.length, edit: 0, escalate: 0, edit_rate: 0 } }),
       drift: async () => ({ artifacts: [], findings: findings.filter((f) => f.kind === 'drift'), usage: { cost_usd: 0.5, model_calls: 4, in_tokens: 400, out_tokens: 50 } }),
     },
     serve: async () => ({ answer: 'I do not have information on that.', refs: [], artifact_ids: [] }),
@@ -124,6 +126,8 @@ describe('eval runner', () => {
     expect(byKey.get('extract_source_coverage')?.value).toBe(1);
     expect(byKey.get('draft_source_coverage')?.value).toBe(1);
     expect(sc.stages.find((s) => s.name === 'draft')?.artifacts).toBeGreaterThan(50);
+    expect(sc.stages.find((s) => s.name === 'judge')?.artifacts).toBe(sc.stages.find((s) => s.name === 'draft')?.artifacts);
+    expect(byKey.get('judge_edit_rate')?.value).toBe(0);
     expect(sc.stages.find((s) => s.name === 'extract')?.claims).toBeGreaterThan(100);
     expect(sc.stages.find((s) => s.name === 'filter')?.kept).toBeLessThan(sc.corpus.items);
     expect(byKey.get('contradiction_recall')?.value).toBe(1);

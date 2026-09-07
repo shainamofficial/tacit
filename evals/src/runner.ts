@@ -72,6 +72,7 @@ export interface StageReport {
   readonly kept: number | null;
   readonly claims: number;
   readonly usage: StageUsage;
+  readonly stats: Readonly<Record<string, number>>;
   readonly error?: string;
   readonly notes: readonly string[];
 }
@@ -139,7 +140,7 @@ function scoredKeys(filter: StageFilter): ReadonlySet<string> {
     case 'draft':
       return new Set([...always, 'draft_source_coverage', 'factuality']);
     case 'judge':
-      return new Set([...always, 'factuality', 'false_assertions']);
+      return new Set([...always, 'draft_source_coverage', 'factuality', 'false_assertions']);
     case 'contradict':
       return new Set([...always, 'contradiction_recall', 'contradiction_precision', 'tribal_surfaced_with_knower', 'false_assertions']);
     case 'drift':
@@ -190,7 +191,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     const runner = pipeline.stages[name];
     const shouldRun = stagesToRun(filter).includes(name);
     if (!runner || !shouldRun) {
-      stageReports.push({ name, implemented: Boolean(runner), ran: false, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, notes: [] });
+      stageReports.push({ name, implemented: Boolean(runner), ran: false, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, stats: {}, notes: [] });
       continue;
     }
     log(`stage ${name}: running on ${items.length} items`);
@@ -198,7 +199,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
       // The gateway ledger tracks live spend per run_id and enforces the cap itself, so pass the
       // run's total budget (passing the remainder would double-count earlier stages).
       const result = await runner({ org_id: run.orgId, run_id: runId, items, claims, artifacts, findings, budget_usd: budget });
-      artifacts = [...artifacts, ...result.artifacts];
+      artifacts = result.replace_artifacts ? [...result.artifacts] : [...artifacts, ...result.artifacts];
       findings = [...findings, ...result.findings];
       cost += result.usage.cost_usd;
       if (result.items) {
@@ -209,21 +210,21 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
         claims = [...claims, ...result.claims];
         if (name === 'extract') extracted = result.claims;
       }
-      stageReports.push({ name, implemented: true, ran: true, artifacts: result.artifacts.length, findings: result.findings.length, kept: result.items ? result.items.length : null, claims: result.claims?.length ?? 0, usage: result.usage, notes: result.notes ?? [] });
+      stageReports.push({ name, implemented: true, ran: true, artifacts: result.artifacts.length, findings: result.findings.length, kept: result.items ? result.items.length : null, claims: result.claims?.length ?? 0, usage: result.usage, stats: result.stats ?? {}, notes: result.notes ?? [] });
       if (cost > budget) {
         notes.push(`budget exceeded after ${name}: $${cost.toFixed(2)} > $${budget.toFixed(2)}; later stages skipped`);
         break;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      stageReports.push({ name, implemented: true, ran: true, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, error: message, notes: [] });
+      stageReports.push({ name, implemented: true, ran: true, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, stats: {}, error: message, notes: [] });
       notes.push(`stage ${name} failed: ${message}; later stages skipped`);
       break;
     }
   }
   for (const name of STAGE_ORDER) {
     if (!stageReports.some((s) => s.name === name)) {
-      stageReports.push({ name, implemented: Boolean(pipeline.stages[name]), ran: false, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, notes: [] });
+      stageReports.push({ name, implemented: Boolean(pipeline.stages[name]), ran: false, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, stats: {}, notes: [] });
     }
   }
   const missing = stageReports.filter((s) => !s.implemented).map((s) => s.name);
@@ -233,6 +234,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   const filterScore = scoreFilter(corpus, filtered);
   const extractScore = scoreExtract(corpus, extracted);
   const draftScore = scoreExtract(corpus, stageReports.some((s) => s.name === 'draft' && s.ran && !s.error) ? artifacts.flatMap((a) => a.claims) : null);
+  const judgeStats = stageReports.find((s) => s.name === 'judge' && s.ran && !s.error)?.stats ?? null;
   const contradictions = scoreContradictions(corpus.manifest.defects, findings);
   const drift = scoreDrift(corpus.manifest.defects, findings);
   const tribal = scoreTribal(corpus.manifest.defects, findings, artifacts);
@@ -277,6 +279,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     metric('filter_noise_rejection', 'Filter: noise rejection', filterScore.noise_rejection, filterScore.noise_rejection === null ? 'n/a' : `${filterScore.noise - filterScore.noise_kept}/${filterScore.noise} (${pct(filterScore.noise_rejection)})`, `≥ ${pct(thresholds.filter_noise_rejection)}`, gte(filterScore.noise_rejection, thresholds.filter_noise_rejection)),
     metric('extract_source_coverage', 'Extract: source coverage', extractScore.source_coverage, extractScore.source_coverage === null ? 'n/a' : `${extractScore.covered}/${extractScore.locations} (${pct(extractScore.source_coverage)}; ${extractScore.claims} claims)`, `≥ ${pct(thresholds.extract_source_coverage)}`, gte(extractScore.source_coverage, thresholds.extract_source_coverage), extractScore.uncovered_sample.length ? `uncovered: ${extractScore.uncovered_sample.slice(0, 4).join('; ')}${extractScore.uncovered_sample.length > 4 ? '…' : ''}` : undefined),
     metric('draft_source_coverage', 'Draft: source coverage', draftScore.source_coverage, draftScore.source_coverage === null ? 'n/a' : `${draftScore.covered}/${draftScore.locations} (${pct(draftScore.source_coverage)}; ${artifacts.length} artifacts)`, `≥ ${pct(thresholds.draft_source_coverage)}`, gte(draftScore.source_coverage, thresholds.draft_source_coverage), draftScore.uncovered_sample.length ? `uncovered: ${draftScore.uncovered_sample.slice(0, 4).join('; ')}${draftScore.uncovered_sample.length > 4 ? '…' : ''}` : undefined),
+    metric('judge_edit_rate', 'Judge: edit rate (info)', judgeStats?.edit_rate ?? null, judgeStats ? `${pct(judgeStats.edit_rate ?? null)} (${judgeStats.approve ?? 0} approve, ${judgeStats.edit ?? 0} edit, ${judgeStats.escalate ?? 0} escalate)` : 'n/a', 'trend ↓', true),
     metric('contradiction_recall', 'Contradiction recall', contradictions.recall, `${contradictions.matched}/${contradictions.defects} (${pct(contradictions.recall)})`, `≥ ${pct(thresholds.contradiction_recall)}`, gte(contradictions.recall, thresholds.contradiction_recall)),
     metric('contradiction_precision', 'Contradiction precision', contradictions.precision, contradictions.precision === null ? 'n/a (no findings)' : `${contradictions.true_positives}/${contradictions.findings} (${pct(contradictions.precision)})`, `≥ ${pct(thresholds.contradiction_precision)}`, gte(contradictions.precision, thresholds.contradiction_precision)),
     metric('drift_recall', 'Drift recall', drift.recall, `${drift.matched}/${drift.defects} (${pct(drift.recall)})`, `≥ ${pct(thresholds.drift_recall)}`, gte(drift.recall, thresholds.drift_recall)),
