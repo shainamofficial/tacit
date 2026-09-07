@@ -5,7 +5,7 @@ describe('prompts', () => {
   it('loads filter.md with its front matter', () => {
     const p = loadPrompt('filter');
     expect(p.stage).toBe('filter');
-    expect(p.version).toBe(1);
+    expect(p.version).toBe(2);
     expect(p.params).toMatchObject({ batch_size: 40 });
     expect(p.text).toContain('When unsure, KEEP');
     expect(p.text).toContain('"decisions"');

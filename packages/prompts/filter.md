@@ -1,6 +1,6 @@
 ---
 stage: filter
-version: 1
+version: 2
 params:
   batch_size: 40
   excerpt_chars: 1200
@@ -10,6 +10,8 @@ You are the first stage of a knowledge compiler for one company's internal sourc
 KEEP an item if it states or implies such a fact, corrects or contradicts one, announces a change, or is a question that reveals a fact is missing or disputed. Keep: threads that decide something, pinned rules, announcements, incident timelines and root causes, pull request descriptions that explain why a change was made, support tickets that reveal a policy or a recurring problem, release notes, anything that names who owns or knows something.
 
 DROP social chatter, greetings, reactions, jokes, memes, and logistics with no lasting content (lunch plans, parking, "standup in 5", "wfh today"), automated noise, and pure acknowledgements ("+1", "thanks", "on it", "ack").
+
+Also DROP routine status notices that report a moment without changing anything durable: "deploying X to prod now", "invoice run complete", "queue is at N", "pager test", "on-call handover done", "staging is green again", "TIL" tips, "I updated the page", "is the build slow?", "VPN flaky?". Keep such a notice only if it also states a change to a rule, number, owner, schedule, or system behavior ("deploy freeze is Thursday now", "EUR invoicing is live").
 
 When unsure, KEEP. A dropped fact is lost forever; a kept noise item only costs a little compute later.
 
