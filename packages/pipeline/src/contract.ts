@@ -89,6 +89,8 @@ export interface EvalArtifact {
   readonly permission_scope: { readonly require_all: readonly string[] };
   /** The pipeline can only produce these two; human states come from interviews. */
   readonly verification_state: 'unverified' | 'machine_consistent';
+  /** Stage annotations: topic, permission variant, conflicts, uncertain claim ids. */
+  readonly meta?: Readonly<Record<string, unknown>>;
 }
 
 export interface StageUsage {
