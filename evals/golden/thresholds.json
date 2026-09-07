@@ -3,6 +3,7 @@
   "filter_signal_recall": 0.98,
   "filter_noise_rejection": 0.8,
   "extract_source_coverage": 0.9,
+  "draft_source_coverage": 0.85,
   "contradiction_recall": 0.8,
   "contradiction_precision": 0.7,
   "drift_recall": 0.9,

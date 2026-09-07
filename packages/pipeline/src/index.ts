@@ -4,12 +4,15 @@
 import { complete as gatewayComplete } from '@tacit/gateway';
 import { cachedGatewayComplete } from './cache';
 import { evalPipeline } from './contract';
+import { createDraftStage } from './stages/draft';
 import { createExtractStage } from './stages/extract';
 import { createFilterStage } from './stages/filter';
 
 export * from './contract';
 export { FileCompletionCache, cacheKey, cachedGatewayComplete, wasCached } from './cache';
+export { createDraftStage, mergeClaims, normalizeSubject, variantsFor, type DraftDeps, type MergedClaim, type Variant } from './stages/draft';
 export { batchItems, createExtractStage, locateQuote, type ExtractDeps } from './stages/extract';
+export { drain, parseWithSalvage } from './json';
 export { createFilterStage, ruleDecision, type FilterDecision, type FilterDeps } from './stages/filter';
 
 // Every stage shares one gateway entry point; with TACIT_STAGE_CACHE_DIR set,
@@ -17,3 +20,4 @@ export { createFilterStage, ruleDecision, type FilterDecision, type FilterDeps }
 const complete = cachedGatewayComplete(gatewayComplete);
 evalPipeline.stages.filter = createFilterStage({ complete });
 evalPipeline.stages.extract = createExtractStage({ complete });
+evalPipeline.stages.draft = createDraftStage({ complete });

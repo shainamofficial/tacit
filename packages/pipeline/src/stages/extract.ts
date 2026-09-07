@@ -11,6 +11,7 @@ import { loadPrompt } from '@tacit/prompts';
 import { z } from 'zod';
 import { wasCached } from '../cache';
 import type { ClaimKind, EvalSyncItem, ExtractedClaim, StageContext, StageResult, StageRunner } from '../contract';
+import { parseWithSalvage } from '../json';
 
 export interface ExtractDeps {
   readonly complete?: CompleteFn;
@@ -45,38 +46,9 @@ const Output = z.object({
 });
 type ParsedOutput = z.infer<typeof Output>;
 
-function tryParse(text: string): ParsedOutput | null {
-  try {
-    return Output.parse(JSON.parse(text));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Parse the model's JSON; when it is cut off, keep every complete item/claim
- * by closing the structure at the last object boundary that still parses.
- */
+/** Parse the model's JSON; when it is cut off, keep every complete item/claim. */
 export function parseOutput(text: string): { parsed: ParsedOutput | null; salvaged: boolean } {
-  const start = text.indexOf('{');
-  if (start < 0) return { parsed: null, salvaged: false };
-  const body = text.slice(start);
-  const end = body.lastIndexOf('}');
-  if (end >= 0) {
-    const whole = tryParse(body.slice(0, end + 1));
-    if (whole) return { parsed: whole, salvaged: false };
-  }
-  let tries = 0;
-  for (let i = body.length - 1; i >= 0 && tries < 400; i--) {
-    if (body[i] !== '}') continue;
-    tries += 1;
-    const head = body.slice(0, i + 1);
-    for (const suffix of [']}]}', ']}']) {
-      const parsed = tryParse(head + suffix);
-      if (parsed) return { parsed, salvaged: true };
-    }
-  }
-  return { parsed: null, salvaged: false };
+  return parseWithSalvage(text, Output, [']}]}', ']}']);
 }
 
 function excerpt(item: EvalSyncItem, chars: number): string {

@@ -36,6 +36,8 @@ For each claim provide:
 - quote: a verbatim span from the item's text, at most 140 characters, that supports the claim. Copy it exactly; do not paraphrase inside quote.
 - confidence: 0 to 1. Stated plainly by an authoritative source: 0.8 to 1.0. Stated in passing or by an unclear author: 0.5 to 0.8. Implied: at most 0.5.
 
+Never generalize one instance into a pattern. A single question, complaint, or instruction is a claim about that instance ("Pinewood Apparel reported gripper pads wearing out in two weeks"), not a rule ("gripper pad wear is a recurring complaint", "questionnaires always go to Marcus"). Words like "recurring", "repeatedly", "across accounts", "always", or "policy" belong in a claim only when the text itself says so; otherwise the general form is at most a hint.
+
 Skip opinions, greetings, jokes, and duplicates within one item.
 
 Respond with a single JSON object and nothing else:

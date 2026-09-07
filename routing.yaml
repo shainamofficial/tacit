@@ -48,10 +48,11 @@ stages:
     max_tokens: 4096
     fallbacks: [claude-sonnet-5]
   draft:
-    model: claude-opus-5
+    # PRD §7.2 puts drafting on a mid-tier model; judge and contradict stay frontier.
+    model: claude-sonnet-5
     effort: medium
-    max_tokens: 8192
-    fallbacks: [claude-sonnet-5]
+    max_tokens: 12000
+    fallbacks: []
   judge:
     model: claude-opus-5
     effort: high

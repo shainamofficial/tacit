@@ -6,6 +6,7 @@ import path from 'node:path';
 import { complete as gatewayComplete, type CompleteFn } from '@tacit/gateway';
 import {
   STAGE_ORDER,
+  cachedGatewayComplete,
   ZERO_USAGE,
   evalPipeline,
   type EvalArtifact,
@@ -18,6 +19,7 @@ import {
 } from '@tacit/pipeline';
 import { z } from 'zod';
 import { SEED } from '../corpus/generator/world';
+import { judgeFalseAssertions } from './assertions';
 import { EVALS_ROOT, loadCorpus, type LoadedCorpus } from './corpus';
 import { scoreExtract, type ExtractScore } from './extract';
 import { judgeFactuality } from './factuality';
@@ -33,6 +35,7 @@ export const ThresholdsSchema = z.object({
   filter_signal_recall: z.number().min(0).max(1),
   filter_noise_rejection: z.number().min(0).max(1),
   extract_source_coverage: z.number().min(0).max(1),
+  draft_source_coverage: z.number().min(0).max(1),
   contradiction_recall: z.number().min(0).max(1),
   contradiction_precision: z.number().min(0).max(1),
   drift_recall: z.number().min(0).max(1),
@@ -84,9 +87,11 @@ export interface Scorecard {
   readonly detail: {
     filter: FilterScore;
     extract: ExtractScore;
+    draft: ExtractScore;
     contradictions: ContradictionScore;
     drift: DriftScore;
     tribal: TribalScore;
+    false_assertions: ReadonlyArray<{ defect_id: string; artifact_id: string; claim: string; reason: string }>;
     factuality: { judged: number; supported: number; unsupported: ReadonlyArray<{ artifact_id: string; claim: string; reason: string }> };
     serve_probes: number;
   };
@@ -130,7 +135,7 @@ function scoredKeys(filter: StageFilter): ReadonlySet<string> {
     case 'extract':
       return new Set([...always, 'extract_source_coverage', 'factuality']);
     case 'draft':
-      return new Set([...always, 'factuality']);
+      return new Set([...always, 'draft_source_coverage', 'factuality']);
     case 'judge':
       return new Set([...always, 'factuality', 'false_assertions']);
     case 'contradict':
@@ -144,6 +149,7 @@ function scoredKeys(filter: StageFilter): ReadonlySet<string> {
         ...always,
         ...filterKeys,
         'extract_source_coverage',
+        'draft_source_coverage',
         'contradiction_recall',
         'contradiction_precision',
         'drift_recall',
@@ -158,7 +164,8 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   const log = opts.log ?? (() => undefined);
   const filter = opts.stage ?? 'all';
   const pipeline = opts.pipeline ?? evalPipeline;
-  const complete = opts.complete ?? gatewayComplete;
+  // Judge calls go through the same disk cache as the stages (F-CMP-5), so re-runs are free.
+  const complete = opts.complete ?? cachedGatewayComplete(gatewayComplete);
   const thresholds = loadThresholds(opts.thresholdsPath);
   const probes = ProbesSchema.parse(JSON.parse(readFileSync(opts.probesPath ?? DEFAULT_PROBES_PATH, 'utf8')));
   const corpus: LoadedCorpus = loadCorpus({ log, ...(opts.corpusDir ? { dir: opts.corpusDir } : {}), ...(opts.manifestPath ? { manifestPath: opts.manifestPath } : {}) });
@@ -186,7 +193,9 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     }
     log(`stage ${name}: running on ${items.length} items`);
     try {
-      const result = await runner({ org_id: run.orgId, run_id: runId, items, claims, artifacts, findings, budget_usd: budget - cost });
+      // The gateway ledger tracks live spend per run_id and enforces the cap itself, so pass the
+      // run's total budget (passing the remainder would double-count earlier stages).
+      const result = await runner({ org_id: run.orgId, run_id: runId, items, claims, artifacts, findings, budget_usd: budget });
       artifacts = [...artifacts, ...result.artifacts];
       findings = [...findings, ...result.findings];
       cost += result.usage.cost_usd;
@@ -221,9 +230,14 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   // --- grade
   const filterScore = scoreFilter(corpus, filtered);
   const extractScore = scoreExtract(corpus, extracted);
+  const draftScore = scoreExtract(corpus, stageReports.some((s) => s.name === 'draft' && s.ran && !s.error) ? artifacts.flatMap((a) => a.claims) : null);
   const contradictions = scoreContradictions(corpus.manifest.defects, findings);
   const drift = scoreDrift(corpus.manifest.defects, findings);
   const tribal = scoreTribal(corpus.manifest.defects, findings, artifacts);
+  // Provenance overlap only nominates candidates; the judge decides which ones actually assert the unwritten rule.
+  const assertions = await judgeFalseAssertions(tribal.false_assertions, corpus.manifest.defects, complete);
+  cost += assertions.cost_usd;
+  if (assertions.note) notes.push(`false assertions: ${assertions.note}`);
   // Until draft/judge exist, factuality is judged on extracted claims (each wrapped as a one-claim artifact).
   const judged: EvalArtifact[] =
     artifacts.length > 0
@@ -260,11 +274,12 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     metric('filter_signal_recall', 'Filter: signal recall', filterScore.signal_recall, filterScore.signal_recall === null ? 'n/a' : `${filterScore.must_keep_kept}/${filterScore.must_keep} (${pct(filterScore.signal_recall)})`, `≥ ${pct(thresholds.filter_signal_recall)}`, gte(filterScore.signal_recall, thresholds.filter_signal_recall), filterScore.dropped_signal.length ? `dropped: ${filterScore.dropped_signal.slice(0, 5).join(', ')}${filterScore.dropped_signal.length > 5 ? '…' : ''}` : undefined),
     metric('filter_noise_rejection', 'Filter: noise rejection', filterScore.noise_rejection, filterScore.noise_rejection === null ? 'n/a' : `${filterScore.noise - filterScore.noise_kept}/${filterScore.noise} (${pct(filterScore.noise_rejection)})`, `≥ ${pct(thresholds.filter_noise_rejection)}`, gte(filterScore.noise_rejection, thresholds.filter_noise_rejection)),
     metric('extract_source_coverage', 'Extract: source coverage', extractScore.source_coverage, extractScore.source_coverage === null ? 'n/a' : `${extractScore.covered}/${extractScore.locations} (${pct(extractScore.source_coverage)}; ${extractScore.claims} claims)`, `≥ ${pct(thresholds.extract_source_coverage)}`, gte(extractScore.source_coverage, thresholds.extract_source_coverage), extractScore.uncovered_sample.length ? `uncovered: ${extractScore.uncovered_sample.slice(0, 4).join('; ')}${extractScore.uncovered_sample.length > 4 ? '…' : ''}` : undefined),
+    metric('draft_source_coverage', 'Draft: source coverage', draftScore.source_coverage, draftScore.source_coverage === null ? 'n/a' : `${draftScore.covered}/${draftScore.locations} (${pct(draftScore.source_coverage)}; ${artifacts.length} artifacts)`, `≥ ${pct(thresholds.draft_source_coverage)}`, gte(draftScore.source_coverage, thresholds.draft_source_coverage), draftScore.uncovered_sample.length ? `uncovered: ${draftScore.uncovered_sample.slice(0, 4).join('; ')}${draftScore.uncovered_sample.length > 4 ? '…' : ''}` : undefined),
     metric('contradiction_recall', 'Contradiction recall', contradictions.recall, `${contradictions.matched}/${contradictions.defects} (${pct(contradictions.recall)})`, `≥ ${pct(thresholds.contradiction_recall)}`, gte(contradictions.recall, thresholds.contradiction_recall)),
     metric('contradiction_precision', 'Contradiction precision', contradictions.precision, contradictions.precision === null ? 'n/a (no findings)' : `${contradictions.true_positives}/${contradictions.findings} (${pct(contradictions.precision)})`, `≥ ${pct(thresholds.contradiction_precision)}`, gte(contradictions.precision, thresholds.contradiction_precision)),
     metric('drift_recall', 'Drift recall', drift.recall, `${drift.matched}/${drift.defects} (${pct(drift.recall)})`, `≥ ${pct(thresholds.drift_recall)}`, gte(drift.recall, thresholds.drift_recall)),
     metric('tribal_surfaced_with_knower', 'Tribal gaps surfaced w/ knower', tribal.surfaced_with_knower, `${tribal.with_knower}/${tribal.defects} (${pct(tribal.surfaced_with_knower)}; ${tribal.surfaced} surfaced)`, `≥ ${pct(thresholds.tribal_surfaced_with_knower)}`, gte(tribal.surfaced_with_knower, thresholds.tribal_surfaced_with_knower)),
-    metric('false_assertions', 'False assertions of tribal facts', tribal.false_assertions.length, String(tribal.false_assertions.length), `≤ ${thresholds.false_assertions_max}`, tribal.false_assertions.length <= thresholds.false_assertions_max),
+    metric('false_assertions', 'False assertions of tribal facts', assertions.asserted.length, `${assertions.asserted.length} (${assertions.candidates} candidates judged)`, `≤ ${thresholds.false_assertions_max}`, assertions.asserted.length <= thresholds.false_assertions_max, assertions.asserted.length ? `e.g. ${assertions.asserted[0]?.defect_id}: ${assertions.asserted[0]?.claim.slice(0, 80)}` : undefined),
     metric('permission_leaks', 'Permission leaks', leaks.length, `${leaks.length} (${artifacts.length} artifacts checked, ${probed} probes)`, '= 0', leaks.length === 0, leaks.length > 0 ? 'STOP THE LINE' : undefined),
     metric('factuality', 'Artifact factuality', factuality.value, factuality.value === null ? 'n/a' : `${factuality.supported}/${factuality.judged} (${pct(factuality.value)})`, `≥ ${pct(thresholds.factuality)}`, gte(factuality.value, thresholds.factuality), factuality.note),
     metric('compile_cost_usd', '$/compile', cost, `$${cost.toFixed(2)}`, `≤ $${thresholds.compile_cost_usd_max.toFixed(2)}`, cost <= thresholds.compile_cost_usd_max),
@@ -288,9 +303,11 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     detail: {
       filter: filterScore,
       extract: extractScore,
+      draft: draftScore,
       contradictions,
       drift,
       tribal,
+      false_assertions: assertions.asserted,
       factuality: { judged: factuality.judged, supported: factuality.supported, unsupported: factuality.unsupported },
       serve_probes: probed,
     },
