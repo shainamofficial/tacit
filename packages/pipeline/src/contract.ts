@@ -121,7 +121,7 @@ export interface StageContext {
   readonly claims: readonly ExtractedClaim[];
   readonly artifacts: readonly EvalArtifact[];
   readonly findings: readonly Finding[];
-  /** Remaining budget for this run; stages pass it to the gateway as the hard cap. */
+  /** The run's total budget; stages pass it to the gateway, whose per-run ledger enforces it against live spend. */
   readonly budget_usd: number;
 }
 

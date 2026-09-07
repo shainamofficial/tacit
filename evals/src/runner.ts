@@ -193,7 +193,9 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     }
     log(`stage ${name}: running on ${items.length} items`);
     try {
-      const result = await runner({ org_id: run.orgId, run_id: runId, items, claims, artifacts, findings, budget_usd: budget - cost });
+      // The gateway ledger tracks live spend per run_id and enforces the cap itself, so pass the
+      // run's total budget (passing the remainder would double-count earlier stages).
+      const result = await runner({ org_id: run.orgId, run_id: runId, items, claims, artifacts, findings, budget_usd: budget });
       artifacts = [...artifacts, ...result.artifacts];
       findings = [...findings, ...result.findings];
       cost += result.usage.cost_usd;
