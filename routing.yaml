@@ -62,8 +62,10 @@ stages:
     fallbacks: []
   contradict:
     # Discovery of non-obvious conflicts and implied knowledge stays frontier (PRD §7.2 step 5).
+    # Proposed high (was xhigh): ~44 discovery calls of ~2k tokens each on Opus; judge earned its
+    # numbers at high, and the run cap ($15) leaves ~$4 for contradict + drift together.
     model: claude-opus-5
-    effort: xhigh
+    effort: high
     max_tokens: 8192
     fallbacks: []
   contradict_verify:

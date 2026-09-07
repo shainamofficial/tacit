@@ -86,6 +86,8 @@ export interface Topic {
   readonly crossSource: boolean;
   /** carries a hint or an uncertain claim: a candidate for implied knowledge */
   readonly uncertain: boolean;
+  /** only chat and tickets say it: a fact no document states, so a tribal-knowledge candidate */
+  readonly conversational: boolean;
 }
 
 /**
@@ -128,6 +130,7 @@ export function groupByTopic(claims: readonly ExtractedClaim[], artifacts: reado
         claims: merged,
         crossSource: items.size >= 2,
         uncertain: merged.some((m) => m.kind === 'hint' || m.confidence <= 0.5),
+        conversational: cs.every((c) => c.source === 'slack' || (c.source === 'zendesk' && c.item_kind === 'ticket')),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -148,6 +151,69 @@ export function capClaims(claims: readonly MergedClaim[], max: number): MergedCl
     }
   }
   return [...first, ...rest].slice(0, max);
+}
+
+const topicWords = (name: string): string[] => [...new Set(normalizeSubject(name).split(' ').filter((w) => w.length > 1))];
+
+/**
+ * The cluster step sometimes names one topic twice ("first response time" and
+ * "support first response time"). Fold a topic into the smallest other topic
+ * whose name contains every word of its own, so both sides of a conflict share
+ * a topic and discovery sees them together.
+ */
+export function mergeSubsetTopics(topics: readonly Topic[]): Topic[] {
+  const words = new Map(topics.map((t) => [t.name, topicWords(t.name)] as const));
+  const wordsOf = (name: string): string[] => words.get(name) ?? [];
+  const target = new Map<string, string>();
+  for (const t of topics) {
+    const w = wordsOf(t.name);
+    if (w.length < 2) continue;
+    const best = topics
+      .filter((o) => o !== t && wordsOf(o.name).length > w.length && w.every((x) => wordsOf(o.name).includes(x)))
+      .sort((a, b) => wordsOf(a.name).length - wordsOf(b.name).length || a.name.localeCompare(b.name))[0];
+    if (best) target.set(t.name, best.name);
+  }
+  const root = (name: string): string => {
+    let n = name;
+    while (target.has(n)) n = target.get(n) as string; // strictly longer names each hop: no cycles
+    return n;
+  };
+  const groups = new Map<string, Topic[]>();
+  for (const t of topics) {
+    const r = root(t.name);
+    const list = groups.get(r) ?? [];
+    list.push(t);
+    groups.set(r, list);
+  }
+  return [...groups.entries()]
+    .map(([name, members]) => {
+      const only = members[0];
+      if (members.length === 1 && only) return only;
+      const claims = mergeClaims(members.flatMap((m) => m.claims.flatMap((c) => c.members)));
+      const items = new Set(claims.flatMap((c) => c.members.map((m) => m.item_id)));
+      return { name, claims, crossSource: items.size >= 2, uncertain: members.some((m) => m.uncertain), conversational: members.every((m) => m.conversational) };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Order topics so names sharing their rarest common word sit together: related topics land in one discovery batch. */
+export function orderForDiscovery(topics: readonly Topic[]): Topic[] {
+  const df = new Map<string, number>();
+  for (const t of topics) for (const w of topicWords(t.name)) df.set(w, (df.get(w) ?? 0) + 1);
+  const key = (t: Topic): string | null => {
+    const shared = topicWords(t.name)
+      .filter((w) => (df.get(w) ?? 0) >= 2)
+      .sort((a, b) => (df.get(a) ?? 0) - (df.get(b) ?? 0) || a.localeCompare(b));
+    return shared[0] ?? null;
+  };
+  // Topics sharing a word first (grouped by it), then the loners by name.
+  return [...topics].sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    if (ka === null && kb !== null) return 1;
+    if (ka !== null && kb === null) return -1;
+    return (ka ?? '').localeCompare(kb ?? '') || a.name.localeCompare(b.name);
+  });
 }
 
 /** Map a model-suggested knower (name, email, handle, first name) onto the directory; unknown strings pass through. */
@@ -173,6 +239,7 @@ interface Candidate {
 
 export interface ContradictStats {
   topics: number;
+  merged_topics: number;
   eligible_topics: number;
   discovery_calls: number;
   verify_calls: number;
@@ -207,7 +274,7 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
 
     const usage = { cost_usd: 0, model_calls: 0, in_tokens: 0, out_tokens: 0, cached_calls: 0 };
     const stats: ContradictStats = {
-      topics: 0, eligible_topics: 0, discovery_calls: 0, verify_calls: 0, candidates: 0, from_discovery: 0, from_draft: 0, from_judge: 0,
+      topics: 0, merged_topics: 0, eligible_topics: 0, discovery_calls: 0, verify_calls: 0, candidates: 0, from_discovery: 0, from_draft: 0, from_judge: 0,
       verified: 0, rejected: 0, unverified: 0, contradictions: 0, drifts: 0, implied: 0, escalations_kept: 0,
     };
     const notes: string[] = [];
@@ -245,15 +312,17 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
     };
 
     // ---- 1. topics
-    const topics = groupByTopic(ctx.claims, ctx.artifacts);
+    const rawTopics = groupByTopic(ctx.claims, ctx.artifacts);
+    const topics = mergeSubsetTopics(rawTopics);
     stats.topics = topics.length;
+    stats.merged_topics = rawTopics.length - topics.length;
     const mergedByMember = new Map<string, MergedClaim>();
     const mergedByText = new Map<string, MergedClaim>();
     for (const t of topics) for (const m of t.claims) {
       mergedByText.set(norm(m.text), m);
       for (const member of m.members) mergedByMember.set(member.id, m);
     }
-    const eligible = topics.filter((t) => t.crossSource || t.uncertain);
+    const eligible = orderForDiscovery(topics.filter((t) => t.crossSource || t.uncertain || t.conversational));
     stats.eligible_topics = eligible.length;
 
     const candidates = new Map<string, Candidate>();
@@ -271,23 +340,19 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
 
     // ---- 2. discovery (frontier)
     const directory = people.length > 0 ? `Directory:\n${people.map((p) => `${p.name} — ${p.title ?? 'unknown title'} — ${p.email}`).join('\n')}\n\n` : '';
+    const claimRecord = (c: MergedClaim, id: string): Record<string, unknown> => {
+      const item = itemsById.get(c.members[0]?.item_id ?? '');
+      const by = authorsOf(c);
+      return { id, src: c.source, from: item?.title ?? c.provenance[0]?.ref ?? '', date: c.date, ...(by.length ? { by: by.join(', ') } : {}), kind: c.kind, text: c.text, ...(c.quote ? { quote: c.quote.slice(0, 300) } : {}), conf: c.confidence };
+    };
     interface Pack {
       readonly topic: Topic;
-      readonly ids: Map<string, MergedClaim>;
-      readonly payload: { topic: string; claims: unknown[] };
+      readonly claims: readonly MergedClaim[];
       readonly chars: number;
     }
     const packs: Pack[] = eligible.map((topic) => {
-      const ids = new Map<string, MergedClaim>();
-      const claims = capClaims(topic.claims, maxClaimsPerTopic).map((c, i) => {
-        const id = `k${i + 1}`;
-        ids.set(id, c);
-        const item = itemsById.get(c.members[0]?.item_id ?? '');
-        const by = authorsOf(c);
-        return { id, src: c.source, from: item?.title ?? c.provenance[0]?.ref ?? '', date: c.date, ...(by.length ? { by: by.join(', ') } : {}), kind: c.kind, text: c.text, ...(c.quote ? { quote: c.quote.slice(0, 300) } : {}), conf: c.confidence };
-      });
-      const payload = { topic: topic.name, claims };
-      return { topic, ids, payload, chars: JSON.stringify(payload).length };
+      const claims = capClaims(topic.claims, maxClaimsPerTopic);
+      return { topic, claims, chars: JSON.stringify({ topic: topic.name, claims: claims.map((c) => claimRecord(c, 'k000')) }).length };
     });
     const discoveryQueue: Pack[][] = [];
     let current: Pack[] = [];
@@ -306,7 +371,19 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
 
     await drain(discoveryQueue, concurrency, async (batch) => {
       if (budgetHit) return;
-      const text = await call('contradict', discoveryPrompt.text, `${directory}Topics:\n${JSON.stringify(batch.map((p) => p.payload))}`, maxTokens);
+      // Claim ids are unique across the batch so a conflict may pair claims from neighbouring topics.
+      const ids = new Map<string, MergedClaim>();
+      let n = 0;
+      const payload = batch.map((p) => ({
+        topic: p.topic.name,
+        claims: p.claims.map((c) => {
+          n += 1;
+          const id = `k${n}`;
+          ids.set(id, c);
+          return claimRecord(c, id);
+        }),
+      }));
+      const text = await call('contradict', discoveryPrompt.text, `${directory}Topics:\n${JSON.stringify(payload)}`, maxTokens);
       if (text === null) return;
       stats.discovery_calls += 1;
       const { parsed, salvaged } = parseWithSalvage(text, DiscoveryOut, [']}', ']}]}', ']}]}]}']);
@@ -318,12 +395,12 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
         if (!pack || done.has(pack.topic.name)) continue;
         done.add(pack.topic.name);
         for (const c of t.conflicts) {
-          const sides = c.claims.map((id) => pack.ids.get(id)).filter((x): x is MergedClaim => x !== undefined);
-          const newer = c.newer ? pack.ids.get(c.newer) : undefined;
+          const sides = c.claims.map((id) => ids.get(id)).filter((x): x is MergedClaim => x !== undefined);
+          const newer = c.newer ? ids.get(c.newer) : undefined;
           addCandidate(sides, c.question || pack.topic.name, 'discovery', [c.summary, newer ? `newer: ${newer.text}` : ''].filter(Boolean).join(' '));
         }
         for (const im of t.implied) {
-          const cited = im.claims.map((id) => pack.ids.get(id)).filter((x): x is MergedClaim => x !== undefined);
+          const cited = im.claims.map((id) => ids.get(id)).filter((x): x is MergedClaim => x !== undefined);
           if (cited.length === 0) continue;
           const knowers = [...new Set(im.knowers.map((k) => resolveKnower(k, people)).filter(Boolean))];
           const fallback = knowers.length > 0 ? knowers : [...new Set(cited.flatMap(authorsOf))];

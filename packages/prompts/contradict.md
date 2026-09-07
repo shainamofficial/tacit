@@ -18,4 +18,4 @@ Find two things per topic.
 Respond with a single JSON object and nothing else:
 {"topics":[{"topic":"<name>","conflicts":[{"claims":["k3","k7"],"question":"<the fact in question, at most 10 words>","summary":"<A says X (source, date); B says Y (source, date)>","newer":"k7"}],"implied":[{"claims":["k9","k10"],"rule":"<hypothesis, one sentence>","knowers":["<name or email>"],"why":"<at most 20 words>"}]}]}
 
-Include every topic exactly once, with empty arrays when there is nothing to report. Use only claim ids from that topic. Never invent ids, values, or people.
+Include every topic exactly once, with empty arrays when there is nothing to report. Claim ids are unique across the whole message: a conflict may pair claims listed under different topics when they answer the same question — report it under either topic. Never invent ids, values, or people.

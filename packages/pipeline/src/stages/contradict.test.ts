@@ -1,7 +1,7 @@
 import { BudgetExceededError, type CompleteFn, type Completion } from '@tacit/gateway';
 import { describe, expect, it } from 'vitest';
 import type { EvalArtifact, EvalSyncItem, ExtractedClaim, Finding, StageContext } from '../contract';
-import { capClaims, createContradictStage, groupByTopic, isCodeRef, resolveKnower } from './contradict';
+import { capClaims, createContradictStage, groupByTopic, isCodeRef, mergeSubsetTopics, orderForDiscovery, resolveKnower, type Topic } from './contradict';
 import { mergeClaims } from './draft';
 
 const PEOPLE = [
@@ -80,6 +80,16 @@ describe('helpers', () => {
   it('caps claims per topic keeping one per item first', () => {
     const merged = mergeClaims([claim('a', 'i1', 'one'), claim('b', 'i1', 'two'), claim('c', 'i2', 'three'), claim('d', 'i3', 'four')]);
     expect(capClaims(merged, 3).map((c) => c.text)).toEqual(['one', 'three', 'four']);
+  });
+  it('folds a topic into the smallest topic whose name contains all its words, and orders relatives together', () => {
+    const t = (name: string, itemId: string, source: ExtractedClaim['source'] = 'gdrive'): Topic => ({ name, claims: mergeClaims([claim(name, itemId, `fact about ${name}`, { source })]), crossSource: false, uncertain: false, conversational: source === 'slack' });
+    const merged = mergeSubsetTopics([t('first response time', 'sla'), t('support first response time', 'website'), t('support first response time sla', 'x'), t('trial length', 'y'), t('sla', 'z')]);
+    expect(merged.map((m) => m.name)).toEqual(['sla', 'support first response time sla', 'trial length']);
+    const big = merged.find((m) => m.name === 'support first response time sla');
+    expect(big?.claims).toHaveLength(3);
+    expect(big?.crossSource).toBe(true);
+    const ordered = orderForDiscovery([t('api rate limit', 'a'), t('pricing currency', 'b'), t('control-plane rate limit', 'c'), t('eur invoicing', 'd', 'slack')]);
+    expect(ordered.map((o) => o.name)).toEqual(['api rate limit', 'control-plane rate limit', 'eur invoicing', 'pricing currency']);
   });
 });
 
@@ -165,7 +175,7 @@ describe('contradict stage', () => {
     expect(kept?.summary).toContain('needs a human');
     expect(gaps.some((f) => f.summary.startsWith('Escalated: Refund window'))).toBe(false);
 
-    expect(result.stats).toMatchObject({ topics: 4, eligible_topics: 3, contradictions: 1, drifts: 1, implied: 1, escalations_kept: 1, verified: 2, from_judge: 1, from_draft: 0 });
+    expect(result.stats).toMatchObject({ topics: 4, merged_topics: 0, eligible_topics: 3, contradictions: 1, drifts: 1, implied: 1, escalations_kept: 1, verified: 2, from_judge: 1, from_draft: 0 });
     expect(result.stats?.candidates).toBe(2);
   });
 
