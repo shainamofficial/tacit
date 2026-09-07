@@ -110,6 +110,10 @@ export interface StageResult {
   readonly items?: readonly EvalSyncItem[];
   /** Claims produced by this stage (extract output), appended to the run's claims. */
   readonly claims?: readonly ExtractedClaim[];
+  /** When true, `artifacts` is the full judged set and replaces the run's artifacts (judge output). */
+  readonly replace_artifacts?: boolean;
+  /** Stage-specific counters (e.g. judge approve/edit/escalate, edit_rate). */
+  readonly stats?: Readonly<Record<string, number>>;
   readonly notes?: readonly string[];
 }
 
