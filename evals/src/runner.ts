@@ -6,6 +6,7 @@ import path from 'node:path';
 import { complete as gatewayComplete, type CompleteFn } from '@tacit/gateway';
 import {
   STAGE_ORDER,
+  cachedGatewayComplete,
   ZERO_USAGE,
   evalPipeline,
   type EvalArtifact,
@@ -18,6 +19,7 @@ import {
 } from '@tacit/pipeline';
 import { z } from 'zod';
 import { SEED } from '../corpus/generator/world';
+import { judgeFalseAssertions } from './assertions';
 import { EVALS_ROOT, loadCorpus, type LoadedCorpus } from './corpus';
 import { scoreExtract, type ExtractScore } from './extract';
 import { judgeFactuality } from './factuality';
@@ -89,6 +91,7 @@ export interface Scorecard {
     contradictions: ContradictionScore;
     drift: DriftScore;
     tribal: TribalScore;
+    false_assertions: ReadonlyArray<{ defect_id: string; artifact_id: string; claim: string; reason: string }>;
     factuality: { judged: number; supported: number; unsupported: ReadonlyArray<{ artifact_id: string; claim: string; reason: string }> };
     serve_probes: number;
   };
@@ -161,7 +164,8 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   const log = opts.log ?? (() => undefined);
   const filter = opts.stage ?? 'all';
   const pipeline = opts.pipeline ?? evalPipeline;
-  const complete = opts.complete ?? gatewayComplete;
+  // Judge calls go through the same disk cache as the stages (F-CMP-5), so re-runs are free.
+  const complete = opts.complete ?? cachedGatewayComplete(gatewayComplete);
   const thresholds = loadThresholds(opts.thresholdsPath);
   const probes = ProbesSchema.parse(JSON.parse(readFileSync(opts.probesPath ?? DEFAULT_PROBES_PATH, 'utf8')));
   const corpus: LoadedCorpus = loadCorpus({ log, ...(opts.corpusDir ? { dir: opts.corpusDir } : {}), ...(opts.manifestPath ? { manifestPath: opts.manifestPath } : {}) });
@@ -228,6 +232,10 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   const contradictions = scoreContradictions(corpus.manifest.defects, findings);
   const drift = scoreDrift(corpus.manifest.defects, findings);
   const tribal = scoreTribal(corpus.manifest.defects, findings, artifacts);
+  // Provenance overlap only nominates candidates; the judge decides which ones actually assert the unwritten rule.
+  const assertions = await judgeFalseAssertions(tribal.false_assertions, corpus.manifest.defects, complete);
+  cost += assertions.cost_usd;
+  if (assertions.note) notes.push(`false assertions: ${assertions.note}`);
   // Until draft/judge exist, factuality is judged on extracted claims (each wrapped as a one-claim artifact).
   const judged: EvalArtifact[] =
     artifacts.length > 0
@@ -269,7 +277,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     metric('contradiction_precision', 'Contradiction precision', contradictions.precision, contradictions.precision === null ? 'n/a (no findings)' : `${contradictions.true_positives}/${contradictions.findings} (${pct(contradictions.precision)})`, `≥ ${pct(thresholds.contradiction_precision)}`, gte(contradictions.precision, thresholds.contradiction_precision)),
     metric('drift_recall', 'Drift recall', drift.recall, `${drift.matched}/${drift.defects} (${pct(drift.recall)})`, `≥ ${pct(thresholds.drift_recall)}`, gte(drift.recall, thresholds.drift_recall)),
     metric('tribal_surfaced_with_knower', 'Tribal gaps surfaced w/ knower', tribal.surfaced_with_knower, `${tribal.with_knower}/${tribal.defects} (${pct(tribal.surfaced_with_knower)}; ${tribal.surfaced} surfaced)`, `≥ ${pct(thresholds.tribal_surfaced_with_knower)}`, gte(tribal.surfaced_with_knower, thresholds.tribal_surfaced_with_knower)),
-    metric('false_assertions', 'False assertions of tribal facts', tribal.false_assertions.length, String(tribal.false_assertions.length), `≤ ${thresholds.false_assertions_max}`, tribal.false_assertions.length <= thresholds.false_assertions_max),
+    metric('false_assertions', 'False assertions of tribal facts', assertions.asserted.length, `${assertions.asserted.length} (${assertions.candidates} candidates judged)`, `≤ ${thresholds.false_assertions_max}`, assertions.asserted.length <= thresholds.false_assertions_max, assertions.asserted.length ? `e.g. ${assertions.asserted[0]?.defect_id}: ${assertions.asserted[0]?.claim.slice(0, 80)}` : undefined),
     metric('permission_leaks', 'Permission leaks', leaks.length, `${leaks.length} (${artifacts.length} artifacts checked, ${probed} probes)`, '= 0', leaks.length === 0, leaks.length > 0 ? 'STOP THE LINE' : undefined),
     metric('factuality', 'Artifact factuality', factuality.value, factuality.value === null ? 'n/a' : `${factuality.supported}/${factuality.judged} (${pct(factuality.value)})`, `≥ ${pct(thresholds.factuality)}`, gte(factuality.value, thresholds.factuality), factuality.note),
     metric('compile_cost_usd', '$/compile', cost, `$${cost.toFixed(2)}`, `≤ $${thresholds.compile_cost_usd_max.toFixed(2)}`, cost <= thresholds.compile_cost_usd_max),
@@ -297,6 +305,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
       contradictions,
       drift,
       tribal,
+      false_assertions: assertions.asserted,
       factuality: { judged: factuality.judged, supported: factuality.supported, unsupported: factuality.unsupported },
       serve_probes: probed,
     },
