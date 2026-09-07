@@ -43,6 +43,8 @@ export const ThresholdsSchema = z.object({
   false_assertions_max: z.number().int().min(0),
   permission_leaks_max: z.literal(0),
   factuality: z.number().min(0).max(1),
+  /** claims sampled for the rubric judge; larger = less noisy, ~2 cents per claim */
+  factuality_sample: z.number().int().positive(),
   compile_cost_usd_max: z.number().positive(),
 });
 export type Thresholds = z.infer<typeof ThresholdsSchema>;
@@ -243,7 +245,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     artifacts.length > 0
       ? artifacts
       : claims.map((c) => ({ id: c.id, type: 'claim', title: c.subject, body_md: c.text, claims: [{ text: c.text, provenance: c.provenance, confidence: c.confidence }], permission_scope: { require_all: [c.scope_key] }, verification_state: 'unverified' as const }));
-  const factuality = await judgeFactuality(judged, corpus, { sample: opts.factualitySample ?? 20, seed: SEED, complete });
+  const factuality = await judgeFactuality(judged, corpus, { sample: opts.factualitySample ?? thresholds.factuality_sample, seed: SEED, complete });
   cost += factuality.cost_usd;
   if (factuality.note) notes.push(`factuality: ${factuality.note}`);
   if (artifacts.length === 0 && claims.length > 0) notes.push(`factuality judged on a sample of ${judged.length} extracted claims (no artifacts yet)`);

@@ -1,6 +1,6 @@
 ---
 stage: extract
-version: 1
+version: 2
 params:
   max_batch_chars: 6000
   max_items: 8
