@@ -42,6 +42,28 @@ export interface SourceRef {
   readonly line?: number;
 }
 
+export type ClaimKind = 'policy' | 'number' | 'date' | 'owner' | 'decision' | 'behavior' | 'process' | 'customer' | 'hint' | 'other';
+
+/** An atomic fact extracted from one item (extract stage output; input to draft/contradict/drift). */
+export interface ExtractedClaim {
+  readonly id: string;
+  readonly item_id: string;
+  readonly text: string;
+  readonly kind: ClaimKind;
+  /** normalized lowercase topic, e.g. "refund window" */
+  readonly subject: string;
+  readonly value?: string;
+  /** verbatim supporting span when the model supplied one that was found in the item */
+  readonly quote?: string;
+  readonly provenance: readonly SourceRef[];
+  readonly confidence: number;
+  readonly scope_key: string;
+  readonly acl: Acl;
+  readonly source: SourceKind | 'github_commit';
+  readonly item_kind?: string;
+  readonly modified_at: string;
+}
+
 export interface Finding {
   readonly kind: 'contradiction' | 'drift' | 'low_confidence' | 'query_miss';
   readonly refs: readonly SourceRef[];
@@ -74,6 +96,8 @@ export interface StageUsage {
   readonly model_calls: number;
   readonly in_tokens: number;
   readonly out_tokens: number;
+  /** calls served from the stage cache (F-CMP-5); their cost is included in cost_usd as if fresh */
+  readonly cached_calls?: number;
 }
 
 export interface StageResult {
@@ -82,6 +106,8 @@ export interface StageResult {
   readonly usage: StageUsage;
   /** When present, replaces the item set later stages see (filter output). */
   readonly items?: readonly EvalSyncItem[];
+  /** Claims produced by this stage (extract output), appended to the run's claims. */
+  readonly claims?: readonly ExtractedClaim[];
   readonly notes?: readonly string[];
 }
 
@@ -90,6 +116,7 @@ export interface StageContext {
   readonly run_id: string;
   readonly items: readonly EvalSyncItem[];
   /** Everything produced by earlier stages in this run. */
+  readonly claims: readonly ExtractedClaim[];
   readonly artifacts: readonly EvalArtifact[];
   readonly findings: readonly Finding[];
   /** Remaining budget for this run; stages pass it to the gateway as the hard cap. */

@@ -13,7 +13,7 @@ const item = (over: Partial<EvalSyncItem> & { id: string; source: EvalSyncItem['
   ...over,
 });
 
-const ctx = (items: EvalSyncItem[], budget = 5): StageContext => ({ org_id: 'org', run_id: 'run', items, artifacts: [], findings: [], budget_usd: budget });
+const ctx = (items: EvalSyncItem[], budget = 5): StageContext => ({ org_id: 'org', run_id: 'run', items, claims: [], artifacts: [], findings: [], budget_usd: budget });
 
 const completion = (text: string): Completion => ({
   text,
@@ -39,10 +39,10 @@ describe('ruleDecision', () => {
     }
     expect(ruleDecision(item({ id: 's', source: 'slack', content: 'brb' }))?.keep).toBe(false);
   });
-  it('defers real messages, tickets, and commits to the model', () => {
+  it('defers real messages and tickets to the model, keeps commits by rule', () => {
     expect(ruleDecision(item({ id: 'm', source: 'slack', content: 'Reminder: the deploy freeze is Thu 4pm now.' }))).toBeNull();
     expect(ruleDecision(item({ id: 'ticket:1', source: 'zendesk', external_ref: 'ticket:1' }))).toBeNull();
-    expect(ruleDecision(item({ id: 'sha', source: 'github_commit' }))).toBeNull();
+    expect(ruleDecision(item({ id: 'sha', source: 'github_commit', content: 'tune threshold' }))?.keep).toBe(true);
   });
 });
 
@@ -74,12 +74,12 @@ describe('filter stage', () => {
     };
     const result = await createFilterStage({ complete })(ctx(items));
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.ids).toEqual(['policy', 'lunch', 'commit']);
+    expect(calls[0]?.ids).toEqual(['policy', 'lunch']);
     expect(calls[0]?.system).toContain('When unsure, KEEP');
     expect(result.items?.map((i) => i.id)).toEqual(['doc', 'policy', 'commit']);
     expect((result.items?.[1]?.meta as { filter: { topics: string[]; by: string } }).filter).toMatchObject({ topics: ['expense policy'], by: 'model' });
     expect((result.items?.[0]?.meta as { filter: { by: string } }).filter.by).toBe('rule');
-    expect(result.usage).toEqual({ cost_usd: 0.01, model_calls: 1, in_tokens: 150, out_tokens: 20 });
+    expect(result.usage).toEqual({ cost_usd: 0.01, model_calls: 1, in_tokens: 150, out_tokens: 20, cached_calls: 0 });
     expect(result.notes).toBeUndefined();
   });
 
@@ -89,10 +89,10 @@ describe('filter stage', () => {
       n += 1;
       return completion(JSON.stringify({ decisions: [{ id: 'lunch', keep: false, reason: 'social' }] }));
     };
-    const result = await createFilterStage({ complete, batchSize: 2 })(ctx(items));
+    const result = await createFilterStage({ complete, batchSize: 1 })(ctx(items));
     expect(n).toBe(2);
     expect(result.items?.map((i) => i.id)).toEqual(['doc', 'policy', 'commit']);
-    expect(result.notes?.join(' ')).toContain('2 item(s) kept by default');
+    expect(result.notes?.join(' ')).toContain('1 item(s) kept by default');
   });
 
   it('fails open on unparseable output', async () => {

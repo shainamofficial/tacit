@@ -1,7 +1,8 @@
 {
-  "$comment": "Scorecard targets from evals/corpus/SPEC.md §5 (filter targets proposed in Session 7). PROPOSE-ONLY (CLAUDE.md #1): never lower a value to make a run pass; ratchet upward via PR with an ADR.",
+  "$comment": "Scorecard targets from evals/corpus/SPEC.md §5 (filter/extract targets proposed in Sessions 7-8). PROPOSE-ONLY (CLAUDE.md #1): never lower a value to make a run pass; ratchet upward via PR with an ADR.",
   "filter_signal_recall": 0.98,
   "filter_noise_rejection": 0.8,
+  "extract_source_coverage": 0.9,
   "contradiction_recall": 0.8,
   "contradiction_precision": 0.7,
   "drift_recall": 0.9,

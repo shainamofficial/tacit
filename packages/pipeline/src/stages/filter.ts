@@ -9,6 +9,7 @@
 import { BudgetExceededError, complete as gatewayComplete, type CompleteFn } from '@tacit/gateway';
 import { loadPrompt } from '@tacit/prompts';
 import { z } from 'zod';
+import { wasCached } from '../cache';
 import type { EvalSyncItem, StageContext, StageResult, StageRunner, StageUsage } from '../contract';
 
 export interface FilterDecision {
@@ -50,7 +51,9 @@ export function ruleDecision(item: EvalSyncItem): FilterDecision | null {
       return null;
     }
     case 'github_commit':
-      return null;
+      // Commit history is ground truth for drift and tribal hints (a one-line
+      // "tune threshold" commit is exactly the kind of thing the model drops).
+      return keep('commit history is ground truth');
   }
 }
 
@@ -99,7 +102,7 @@ export function createFilterStage(deps: FilterDeps = {}): StageRunner {
     const excerptChars = deps.excerptChars ?? Number(prompt.params.excerpt_chars ?? 1200);
     const decisions = new Map<string, FilterDecision>();
     const notes: string[] = [];
-    const usage = { cost_usd: 0, model_calls: 0, in_tokens: 0, out_tokens: 0 };
+    const usage = { cost_usd: 0, model_calls: 0, in_tokens: 0, out_tokens: 0, cached_calls: 0 };
 
     const undecided: EvalSyncItem[] = [];
     for (const item of ctx.items) {
@@ -127,6 +130,7 @@ export function createFilterStage(deps: FilterDeps = {}): StageRunner {
         );
         usage.cost_usd += completion.cost_usd;
         usage.model_calls += 1;
+        if (wasCached(completion)) usage.cached_calls += 1;
         usage.in_tokens += completion.usage.in_tokens + completion.usage.cache_read_tokens + completion.usage.cache_write_tokens;
         usage.out_tokens += completion.usage.out_tokens;
         let parsed: z.infer<typeof Decisions>;

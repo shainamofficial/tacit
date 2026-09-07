@@ -15,6 +15,8 @@ try {
 } catch {
   // no .env: rely on the process environment
 }
+// Stage outputs are cached on disk so iterating on one stage never re-pays for the ones before it (F-CMP-5).
+process.env.TACIT_STAGE_CACHE_DIR ??= path.join(OUT_DIR, 'stage-cache');
 
 function arg(name: string): string | undefined {
   return process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);

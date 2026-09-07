@@ -11,6 +11,7 @@ import {
   type EvalArtifact,
   type EvalPipeline,
   type EvalSyncItem,
+  type ExtractedClaim,
   type Finding,
   type StageName,
   type StageUsage,
@@ -18,6 +19,7 @@ import {
 import { z } from 'zod';
 import { SEED } from '../corpus/generator/world';
 import { EVALS_ROOT, loadCorpus, type LoadedCorpus } from './corpus';
+import { scoreExtract, type ExtractScore } from './extract';
 import { judgeFactuality } from './factuality';
 import { scoreFilter, type FilterScore } from './filter';
 import { ProbesSchema, checkArtifacts, probeServe, type Leak } from './permission';
@@ -30,6 +32,7 @@ export const STAGE_FILTERS: readonly StageFilter[] = [...STAGE_ORDER, 'serve', '
 export const ThresholdsSchema = z.object({
   filter_signal_recall: z.number().min(0).max(1),
   filter_noise_rejection: z.number().min(0).max(1),
+  extract_source_coverage: z.number().min(0).max(1),
   contradiction_recall: z.number().min(0).max(1),
   contradiction_precision: z.number().min(0).max(1),
   drift_recall: z.number().min(0).max(1),
@@ -62,6 +65,7 @@ export interface StageReport {
   readonly findings: number;
   /** items passed on to the next stage, when the stage narrows the set */
   readonly kept: number | null;
+  readonly claims: number;
   readonly usage: StageUsage;
   readonly error?: string;
   readonly notes: readonly string[];
@@ -79,6 +83,7 @@ export interface Scorecard {
   readonly notes: readonly string[];
   readonly detail: {
     filter: FilterScore;
+    extract: ExtractScore;
     contradictions: ContradictionScore;
     drift: DriftScore;
     tribal: TribalScore;
@@ -123,7 +128,7 @@ function scoredKeys(filter: StageFilter): ReadonlySet<string> {
     case 'filter':
       return new Set([...always, ...filterKeys]);
     case 'extract':
-      return new Set(always);
+      return new Set([...always, 'extract_source_coverage', 'factuality']);
     case 'draft':
       return new Set([...always, 'factuality']);
     case 'judge':
@@ -138,6 +143,7 @@ function scoredKeys(filter: StageFilter): ReadonlySet<string> {
       return new Set([
         ...always,
         ...filterKeys,
+        'extract_source_coverage',
         'contradiction_recall',
         'contradiction_precision',
         'drift_recall',
@@ -165,6 +171,8 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   // --- run stages in order
   let items: readonly EvalSyncItem[] = corpus.items;
   let filtered: readonly EvalSyncItem[] | null = null;
+  let claims: ExtractedClaim[] = [];
+  let extracted: readonly ExtractedClaim[] | null = null;
   let artifacts: EvalArtifact[] = [];
   let findings: Finding[] = [];
   let cost = 0;
@@ -173,12 +181,12 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     const runner = pipeline.stages[name];
     const shouldRun = stagesToRun(filter).includes(name);
     if (!runner || !shouldRun) {
-      stageReports.push({ name, implemented: Boolean(runner), ran: false, artifacts: 0, findings: 0, kept: null, usage: ZERO_USAGE, notes: [] });
+      stageReports.push({ name, implemented: Boolean(runner), ran: false, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, notes: [] });
       continue;
     }
     log(`stage ${name}: running on ${items.length} items`);
     try {
-      const result = await runner({ org_id: run.orgId, run_id: runId, items, artifacts, findings, budget_usd: budget - cost });
+      const result = await runner({ org_id: run.orgId, run_id: runId, items, claims, artifacts, findings, budget_usd: budget - cost });
       artifacts = [...artifacts, ...result.artifacts];
       findings = [...findings, ...result.findings];
       cost += result.usage.cost_usd;
@@ -186,21 +194,25 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
         items = result.items;
         if (name === 'filter') filtered = result.items;
       }
-      stageReports.push({ name, implemented: true, ran: true, artifacts: result.artifacts.length, findings: result.findings.length, kept: result.items ? result.items.length : null, usage: result.usage, notes: result.notes ?? [] });
+      if (result.claims) {
+        claims = [...claims, ...result.claims];
+        if (name === 'extract') extracted = result.claims;
+      }
+      stageReports.push({ name, implemented: true, ran: true, artifacts: result.artifacts.length, findings: result.findings.length, kept: result.items ? result.items.length : null, claims: result.claims?.length ?? 0, usage: result.usage, notes: result.notes ?? [] });
       if (cost > budget) {
         notes.push(`budget exceeded after ${name}: $${cost.toFixed(2)} > $${budget.toFixed(2)}; later stages skipped`);
         break;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      stageReports.push({ name, implemented: true, ran: true, artifacts: 0, findings: 0, kept: null, usage: ZERO_USAGE, error: message, notes: [] });
+      stageReports.push({ name, implemented: true, ran: true, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, error: message, notes: [] });
       notes.push(`stage ${name} failed: ${message}; later stages skipped`);
       break;
     }
   }
   for (const name of STAGE_ORDER) {
     if (!stageReports.some((s) => s.name === name)) {
-      stageReports.push({ name, implemented: Boolean(pipeline.stages[name]), ran: false, artifacts: 0, findings: 0, kept: null, usage: ZERO_USAGE, notes: [] });
+      stageReports.push({ name, implemented: Boolean(pipeline.stages[name]), ran: false, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, notes: [] });
     }
   }
   const missing = stageReports.filter((s) => !s.implemented).map((s) => s.name);
@@ -208,12 +220,19 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
 
   // --- grade
   const filterScore = scoreFilter(corpus, filtered);
+  const extractScore = scoreExtract(corpus, extracted);
   const contradictions = scoreContradictions(corpus.manifest.defects, findings);
   const drift = scoreDrift(corpus.manifest.defects, findings);
   const tribal = scoreTribal(corpus.manifest.defects, findings, artifacts);
-  const factuality = await judgeFactuality(artifacts, corpus, { sample: opts.factualitySample ?? 20, seed: SEED, complete });
+  // Until draft/judge exist, factuality is judged on extracted claims (each wrapped as a one-claim artifact).
+  const judged: EvalArtifact[] =
+    artifacts.length > 0
+      ? artifacts
+      : claims.map((c) => ({ id: c.id, type: 'claim', title: c.subject, body_md: c.text, claims: [{ text: c.text, provenance: c.provenance, confidence: c.confidence }], permission_scope: { require_all: [c.scope_key] }, verification_state: 'unverified' as const }));
+  const factuality = await judgeFactuality(judged, corpus, { sample: opts.factualitySample ?? 20, seed: SEED, complete });
   cost += factuality.cost_usd;
   if (factuality.note) notes.push(`factuality: ${factuality.note}`);
+  if (artifacts.length === 0 && claims.length > 0) notes.push(`factuality judged on a sample of ${judged.length} extracted claims (no artifacts yet)`);
 
   const leaks: Leak[] = checkArtifacts(artifacts, corpus);
   let probed = 0;
@@ -240,6 +259,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   const metrics: Metric[] = [
     metric('filter_signal_recall', 'Filter: signal recall', filterScore.signal_recall, filterScore.signal_recall === null ? 'n/a' : `${filterScore.must_keep_kept}/${filterScore.must_keep} (${pct(filterScore.signal_recall)})`, `≥ ${pct(thresholds.filter_signal_recall)}`, gte(filterScore.signal_recall, thresholds.filter_signal_recall), filterScore.dropped_signal.length ? `dropped: ${filterScore.dropped_signal.slice(0, 5).join(', ')}${filterScore.dropped_signal.length > 5 ? '…' : ''}` : undefined),
     metric('filter_noise_rejection', 'Filter: noise rejection', filterScore.noise_rejection, filterScore.noise_rejection === null ? 'n/a' : `${filterScore.noise - filterScore.noise_kept}/${filterScore.noise} (${pct(filterScore.noise_rejection)})`, `≥ ${pct(thresholds.filter_noise_rejection)}`, gte(filterScore.noise_rejection, thresholds.filter_noise_rejection)),
+    metric('extract_source_coverage', 'Extract: source coverage', extractScore.source_coverage, extractScore.source_coverage === null ? 'n/a' : `${extractScore.covered}/${extractScore.locations} (${pct(extractScore.source_coverage)}; ${extractScore.claims} claims)`, `≥ ${pct(thresholds.extract_source_coverage)}`, gte(extractScore.source_coverage, thresholds.extract_source_coverage), extractScore.uncovered_sample.length ? `uncovered: ${extractScore.uncovered_sample.slice(0, 4).join('; ')}${extractScore.uncovered_sample.length > 4 ? '…' : ''}` : undefined),
     metric('contradiction_recall', 'Contradiction recall', contradictions.recall, `${contradictions.matched}/${contradictions.defects} (${pct(contradictions.recall)})`, `≥ ${pct(thresholds.contradiction_recall)}`, gte(contradictions.recall, thresholds.contradiction_recall)),
     metric('contradiction_precision', 'Contradiction precision', contradictions.precision, contradictions.precision === null ? 'n/a (no findings)' : `${contradictions.true_positives}/${contradictions.findings} (${pct(contradictions.precision)})`, `≥ ${pct(thresholds.contradiction_precision)}`, gte(contradictions.precision, thresholds.contradiction_precision)),
     metric('drift_recall', 'Drift recall', drift.recall, `${drift.matched}/${drift.defects} (${pct(drift.recall)})`, `≥ ${pct(thresholds.drift_recall)}`, gte(drift.recall, thresholds.drift_recall)),
@@ -267,6 +287,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     notes,
     detail: {
       filter: filterScore,
+      extract: extractScore,
       contradictions,
       drift,
       tribal,
@@ -290,7 +311,9 @@ export function renderScorecard(sc: Scorecard): string {
   lines.push(`  stages: ${sc.stages.map((s) => `${s.name}${s.error ? '!' : s.ran ? '✓' : s.implemented ? '·' : '✗'}`).join(' ')}   (✓ ran, ! failed, · implemented but filtered out, ✗ not implemented)`);
   for (const s of ran) {
     const kept = s.kept !== null ? `, ${s.kept} items kept` : '';
-    lines.push(`    ${s.name}: ${s.error ? `FAILED: ${s.error}` : `${s.artifacts} artifacts, ${s.findings} findings${kept}, ${s.usage.model_calls} calls, $${s.usage.cost_usd.toFixed(2)}`}`);
+    const claimsNote = s.claims > 0 ? `, ${s.claims} claims` : '';
+    const cached = s.usage.cached_calls ? ` (${s.usage.cached_calls} cached)` : '';
+    lines.push(`    ${s.name}: ${s.error ? `FAILED: ${s.error}` : `${s.artifacts} artifacts, ${s.findings} findings${kept}${claimsNote}, ${s.usage.model_calls} calls${cached}, ${s.usage.cost_usd.toFixed(2)}`}`);
     for (const n of s.notes) lines.push(`      note: ${n}`);
   }
   for (const n of sc.notes) lines.push(`  note: ${n}`);
