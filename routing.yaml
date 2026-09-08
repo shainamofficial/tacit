@@ -79,7 +79,7 @@ stages:
     # Pairwise "does the code contradict this doc statement" against code excerpts: mid-tier
     # (PRD §7.2); code is ground truth, the model only reads it. Opus fallback is an upgrade.
     model: claude-sonnet-5
-    effort: medium
+    effort: high
     max_tokens: 4096
     fallbacks: [claude-opus-5]
   interview:
