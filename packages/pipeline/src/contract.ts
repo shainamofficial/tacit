@@ -114,7 +114,20 @@ export interface StageResult {
   readonly replace_artifacts?: boolean;
   /** Stage-specific counters (e.g. judge approve/edit/escalate, edit_rate). */
   readonly stats?: Readonly<Record<string, number>>;
+  /**
+   * Finding kinds this stage is authoritative for: earlier findings of these kinds are dropped
+   * before this stage's are appended (contradict re-verifies the judge's escalations).
+   */
+  readonly replace_finding_kinds?: readonly Finding['kind'][];
   readonly notes?: readonly string[];
+}
+
+/** One person from the org directory the connectors capture (Slack users.list, Workspace directory). */
+export interface DirectoryPerson {
+  readonly name: string;
+  readonly email: string;
+  readonly title?: string;
+  readonly handle?: string;
 }
 
 export interface StageContext {
@@ -127,6 +140,8 @@ export interface StageContext {
   readonly findings: readonly Finding[];
   /** The run's total budget; stages pass it to the gateway, whose per-run ledger enforces it against live spend. */
   readonly budget_usd: number;
+  /** Org directory for knower routing (F-GAP-2); connector metadata, not a knowledge source. */
+  readonly people?: readonly DirectoryPerson[];
 }
 
 export type StageName = 'filter' | 'extract' | 'draft' | 'judge' | 'contradict' | 'drift';

@@ -69,10 +69,11 @@ function oraclePipeline(defects: readonly ManifestDefect[], distractors: readonl
       // A perfect filter: drops exactly the corpus's known chatter.
       filter: async (ctx) => ({ artifacts: [], findings: [], usage: { cost_usd: 0.4, model_calls: 3, in_tokens: 300, out_tokens: 30 }, items: ctx.items.filter((i) => !NOISE.includes(i.content)) }),
       extract: async () => ({ artifacts: [], findings: [], usage: { cost_usd: 0.6, model_calls: 5, in_tokens: 500, out_tokens: 50 }, claims: oracleClaims(loadCorpus()) }),
-      contradict: async () => ({ artifacts: [], findings: findings.filter((f) => f.kind !== 'drift'), usage: { cost_usd: 1.25, model_calls: 10, in_tokens: 1000, out_tokens: 100 } }),
+      // Authoritative for contradictions: the judge's (deliberately wrong) escalation below is replaced, not appended.
+      contradict: async () => ({ artifacts: [], findings: findings.filter((f) => f.kind !== 'drift'), replace_finding_kinds: ['contradiction'], usage: { cost_usd: 1.25, model_calls: 10, in_tokens: 1000, out_tokens: 100 } }),
       draft: async (ctx) => ({ artifacts: draft(ctx.claims), findings: [], usage: { cost_usd: 0.3, model_calls: 2, in_tokens: 200, out_tokens: 50 } }),
       // Perfect judge: approves everything, replacing the artifact set without duplicating it.
-      judge: async (ctx) => ({ artifacts: ctx.artifacts.map((a) => ({ ...a, verification_state: 'machine_consistent' as const })), replace_artifacts: true, findings: [], usage: { cost_usd: 0.5, model_calls: 4, in_tokens: 400, out_tokens: 40 }, stats: { approve: ctx.artifacts.length, edit: 0, escalate: 0, edit_rate: 0 } }),
+      judge: async (ctx) => ({ artifacts: ctx.artifacts.map((a) => ({ ...a, verification_state: 'machine_consistent' as const })), replace_artifacts: true, findings: [{ kind: 'contradiction', refs: [], summary: 'judge escalation with no matching defect' }], usage: { cost_usd: 0.5, model_calls: 4, in_tokens: 400, out_tokens: 40 }, stats: { approve: ctx.artifacts.length, edit: 0, escalate: 0, edit_rate: 0 } }),
       drift: async () => ({ artifacts: [], findings: findings.filter((f) => f.kind === 'drift'), usage: { cost_usd: 0.5, model_calls: 4, in_tokens: 400, out_tokens: 50 } }),
     },
     serve: async () => ({ answer: 'I do not have information on that.', refs: [], artifact_ids: [] }),
