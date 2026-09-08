@@ -256,6 +256,11 @@ function loadCorpusUncached(dir: string, manifestPath: string, log: (msg: string
   return { dir, manifest, items, byRef, restrictedScopeByRef, scopeMembers, people };
 }
 
+/** Every scope key the user holds: domain-wide scopes plus restricted ones they are a member of (what the serving layer resolves from connector ACLs). */
+export function visibleScopes(corpus: LoadedCorpus, email: string): Set<string> {
+  return new Set([...corpus.scopeMembers.entries()].filter(([, members]) => members === undefined || members.has(email)).map(([scope]) => scope));
+}
+
 /** Can this user read an item with the given scope key? Domain-wide scopes are visible to everyone. */
 export function userCanSee(corpus: LoadedCorpus, email: string, scopeKey: string): boolean {
   const members = corpus.scopeMembers.get(scopeKey);

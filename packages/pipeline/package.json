@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@tacit/artifacts": "workspace:*",
     "@tacit/connector-core": "workspace:*",
     "@tacit/gateway": "workspace:*",
     "@tacit/prompts": "workspace:*",

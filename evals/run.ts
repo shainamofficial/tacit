@@ -1,4 +1,4 @@
-// `pnpm eval [--stage=<filter|extract|draft|judge|contradict|drift|serve|all>] [--json] [--out=<file>]`
+// `pnpm eval [--stage=<filter|extract|draft|judge|contradict|drift|serve|all>] [--json] [--out=<file>] [--serve-out=<dir>]`
 //
 // The CI gate (F-CMP-4, CLAUDE.md #1). Exit 0 only when every scored metric
 // meets evals/golden/thresholds.json and there are zero permission leaks.
@@ -30,8 +30,10 @@ if (!STAGE_FILTERS.includes(stageArg as StageFilter)) {
 const json = process.argv.includes('--json');
 const outFile = arg('out') ?? path.join(OUT_DIR, 'scorecard.json');
 
+const serveOut = arg('serve-out');
 const scorecard = await runEval({
   stage: stageArg as StageFilter,
+  ...(serveOut ? { serveOut: path.resolve(serveOut) } : {}),
   log: json ? () => undefined : (msg) => console.error(msg),
 });
 

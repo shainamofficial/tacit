@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@tacit/gateway": "workspace:*",
+    "@tacit/artifacts": "workspace:*",
     "@tacit/pipeline": "workspace:*",
     "zod": "^4.5.4",
     "pg": "^8.23.0"
