@@ -12,7 +12,7 @@ import { createFilterStage } from './stages/filter';
 
 export * from './contract';
 export { FileCompletionCache, cacheKey, cachedGatewayComplete, wasCached } from './cache';
-export { capClaims, createContradictStage, groupByTopic, isCodeRef, mergeSubsetTopics, orderForDiscovery, resolveKnower, type ContradictDeps, type ContradictStats, type Topic } from './stages/contradict';
+export { capClaims, createContradictStage, groupByTopic, isCodeRef, isRecordRef, mergeSubsetTopics, orderForDiscovery, resolveKnower, type ContradictDeps, type ContradictStats, type Topic } from './stages/contradict';
 export { createDraftStage, mergeClaims, normalizeSubject, variantsFor, type DraftDeps, type MergedClaim, type Variant } from './stages/draft';
 export { batchItems, createExtractStage, locateQuote, type ExtractDeps } from './stages/extract';
 export { drain, parseWithSalvage } from './json';

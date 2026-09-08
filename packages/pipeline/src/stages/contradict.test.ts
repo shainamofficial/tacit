@@ -1,7 +1,7 @@
 import { BudgetExceededError, type CompleteFn, type Completion } from '@tacit/gateway';
 import { describe, expect, it } from 'vitest';
 import type { EvalArtifact, EvalSyncItem, ExtractedClaim, Finding, StageContext } from '../contract';
-import { capClaims, createContradictStage, groupByTopic, isCodeRef, mergeSubsetTopics, orderForDiscovery, resolveKnower, type Topic } from './contradict';
+import { capClaims, createContradictStage, groupByTopic, isCodeRef, isRecordRef, mergeSubsetTopics, orderForDiscovery, resolveKnower, type Topic } from './contradict';
 import { mergeClaims } from './draft';
 
 const PEOPLE = [
@@ -45,6 +45,13 @@ describe('helpers', () => {
     expect(isCodeRef({ kind: 'github', ref: 'repo/docs/api.md' })).toBe(false);
     expect(isCodeRef({ kind: 'github_commit', ref: 'abc' })).toBe(true);
     expect(isCodeRef({ kind: 'gdrive', ref: 'drive/x.md' })).toBe(false);
+  });
+
+  it('tells sources of record from conversation', () => {
+    expect(isRecordRef({ kind: 'zendesk', ref: 'macro:4' })).toBe(true);
+    expect(isRecordRef({ kind: 'zendesk', ref: 'ticket:1045' })).toBe(false);
+    expect(isRecordRef({ kind: 'slack', ref: 'sales:1.0' })).toBe(false);
+    expect(isRecordRef({ kind: 'gdrive', ref: 'drive/x.md' })).toBe(true);
   });
 
   it('resolves knowers through the directory and passes unknowns through', () => {
@@ -177,6 +184,51 @@ describe('contradict stage', () => {
 
     expect(result.stats).toMatchObject({ topics: 4, merged_topics: 0, eligible_topics: 3, contradictions: 1, drifts: 1, implied: 1, escalations_kept: 1, verified: 2, from_judge: 1, from_draft: 0 });
     expect(result.stats?.candidates).toBe(2);
+  });
+
+  it('turns chat-only conflicts into gaps, drops code history, and merges findings that cite the same record line', async () => {
+    const chatItems = [
+      item('s1', { source: 'slack', external_ref: 'sales:1.0', title: '#sales raj@x.example', scope_key: 'slack:channel:C2', content: 'Bluefin closed-won for 31 robots' }),
+      item('s2', { source: 'slack', external_ref: 'sales:2.0', title: '#sales hannah@x.example', scope_key: 'slack:channel:C2', content: 'Bluefin closed-won for 24 robots' }),
+      item('g1', { source: 'slack', external_ref: 'general:1.0', title: '#general tom@x.example', scope_key: 'slack:channel:C3', content: 'Expenses due by the 5th' }),
+      item('e1', { source: 'slack', external_ref: 'eng:1.0', title: '#eng lena@x.example', scope_key: 'slack:channel:C4', content: 'Reminder: expenses due by the 5th' }),
+      item('policy', { title: 'Expense policy', content: 'l1\nExpenses must be submitted within 30 days.' }),
+      item('k1', { source: 'github_commit', external_ref: 'aaa', title: '#10 limit 100', scope_key: 'github:repo:nw', content: 'limit 100' }),
+      item('k2', { source: 'github_commit', external_ref: 'bbb', title: '#58 limit 120', scope_key: 'github:repo:nw', content: 'limit 120' }),
+    ];
+    const chatClaims = [
+      claim('x1', 's1', 'Bluefin closed-won for 31 robots.', { subject: 'bluefin deal', kind: 'customer', provenance: [{ kind: 'slack', ref: 'sales:1.0' }], source: 'slack' }),
+      claim('x2', 's2', 'Bluefin closed-won for 24 robots.', { subject: 'bluefin deal', kind: 'customer', provenance: [{ kind: 'slack', ref: 'sales:2.0' }], source: 'slack' }),
+      claim('x3', 'policy', 'Expenses must be submitted within 30 days.', { subject: 'expense deadline', provenance: [{ kind: 'gdrive', ref: 'drive/policy.md', line: 2 }] }),
+      claim('x4', 'g1', 'Expenses are due by the 5th.', { subject: 'expense deadline', provenance: [{ kind: 'slack', ref: 'general:1.0' }], source: 'slack' }),
+      claim('x5', 'e1', 'Expenses due by the 5th of the month.', { subject: 'expense deadline', provenance: [{ kind: 'slack', ref: 'eng:1.0' }], source: 'slack' }),
+      claim('x6', 'k1', 'Rate limit set to 100.', { subject: 'rate limit', kind: 'number', provenance: [{ kind: 'github_commit', ref: 'aaa' }], source: 'github_commit' }),
+      claim('x7', 'k2', 'Rate limit raised to 120.', { subject: 'rate limit', kind: 'number', provenance: [{ kind: 'github_commit', ref: 'bbb' }], source: 'github_commit' }),
+    ];
+    const complete: CompleteFn = async (stage, messages) => {
+      const user = messages[1]?.content ?? '';
+      if (stage === 'contradict') {
+        const topics = JSON.parse(user.slice(user.indexOf('Topics:\n') + 8)) as Array<{ topic: string; claims: Array<{ id: string; text: string }> }>;
+        const id = (t: { claims: Array<{ id: string; text: string }> }, needle: string): string => t.claims.find((c) => c.text.includes(needle))?.id ?? 'none';
+        return completion(JSON.stringify({ topics: topics.map((t) => {
+          if (t.topic === 'bluefin deal') return { topic: t.topic, conflicts: [{ claims: [id(t, '31'), id(t, '24')], question: 'bluefin robots', summary: '31 vs 24' }], implied: [] };
+          if (t.topic === 'expense deadline') return { topic: t.topic, conflicts: [{ claims: [id(t, '30 days'), id(t, 'due by the 5th.')], question: 'expense deadline', summary: '30 days vs 5th' }, { claims: [id(t, '30 days'), id(t, 'of the month')], question: 'expense deadline', summary: '30 days vs 5th (eng)' }], implied: [] };
+          if (t.topic === 'rate limit') return { topic: t.topic, conflicts: [{ claims: [id(t, '100'), id(t, '120')], question: 'rate limit', summary: '100 vs 120' }], implied: [] };
+          return { topic: t.topic, conflicts: [], implied: [] };
+        }) }));
+      }
+      const cands = JSON.parse(user.slice(user.indexOf('Candidates:\n') + 12)) as Array<{ id: string }>;
+      return completion(JSON.stringify({ results: cands.map((c) => ({ id: c.id, verdict: 'contradiction', summary: 'differs' })) }));
+    };
+    const result = await createContradictStage({ complete })(ctx({ items: chatItems, claims: chatClaims, artifacts: [], findings: [] }));
+    const contradictions = result.findings.filter((f) => f.kind === 'contradiction');
+    expect(contradictions).toHaveLength(1); // the two expense findings share the policy line → one finding
+    expect(contradictions[0]?.refs.map((r) => r.ref).sort()).toEqual(['drive/policy.md', 'eng:1.0', 'general:1.0']);
+    expect(contradictions[0]?.summary).toContain('Also:');
+    const chat = result.findings.find((f) => f.kind === 'low_confidence' && f.summary.startsWith('Chat disagrees'));
+    expect(chat?.refs.map((r) => r.ref).sort()).toEqual(['sales:1.0', 'sales:2.0']);
+    expect(chat?.suggested_knowers).toEqual(['raj@x.example', 'hannah@x.example']);
+    expect(result.stats).toMatchObject({ verified: 4, contradictions: 1, merged_findings: 1, chat_only: 1, code_history: 1, drifts: 0 });
   });
 
   it('survives garbage output, retries cut-off batches, and stops at the budget without losing prior escalations', async () => {

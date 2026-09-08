@@ -69,6 +69,16 @@ export function isCodeRef(ref: SourceRef): boolean {
   return false;
 }
 
+/**
+ * A source of record: a document, macro, repo file, or commit. Chat messages and
+ * tickets are conversation — two of them disagreeing is a question for a human,
+ * not a contradiction between the company's records.
+ */
+export function isRecordRef(ref: SourceRef): boolean {
+  if (ref.kind === 'zendesk') return ref.ref.startsWith('macro:');
+  return ref.kind !== 'slack';
+}
+
 const refKey = (r: SourceRef): string => `${r.kind}|${r.ref}|${r.line ?? ''}`;
 const itemKey = (kind: string, ref: string): string => `${kind}|${ref}`;
 const norm = (s: string): string => s.toLowerCase().replace(/\s+/g, ' ').trim();
@@ -252,6 +262,9 @@ export interface ContradictStats {
   unverified: number;
   contradictions: number;
   drifts: number;
+  chat_only: number;
+  code_history: number;
+  merged_findings: number;
   implied: number;
   escalations_kept: number;
 }
@@ -275,7 +288,7 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
     const usage = { cost_usd: 0, model_calls: 0, in_tokens: 0, out_tokens: 0, cached_calls: 0 };
     const stats: ContradictStats = {
       topics: 0, merged_topics: 0, eligible_topics: 0, discovery_calls: 0, verify_calls: 0, candidates: 0, from_discovery: 0, from_draft: 0, from_judge: 0,
-      verified: 0, rejected: 0, unverified: 0, contradictions: 0, drifts: 0, implied: 0, escalations_kept: 0,
+      verified: 0, rejected: 0, unverified: 0, contradictions: 0, drifts: 0, chat_only: 0, code_history: 0, merged_findings: 0, implied: 0, escalations_kept: 0,
     };
     const notes: string[] = [];
     let budgetHit = false;
@@ -462,7 +475,8 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
       return parts.join('\n');
     };
     const verifyQueue: Candidate[][] = [];
-    const all = [...candidates.values()];
+    // Deterministic order: discovery finishes in concurrency order, and verify batches must be cache-stable across runs.
+    const all = [...candidates.values()].sort((a, b) => a.key.localeCompare(b.key));
     for (let i = 0; i < all.length; i += verifyBatch) verifyQueue.push(all.slice(i, i + verifyBatch));
     await drain(verifyQueue, concurrency, async (batch) => {
       if (budgetHit) return;
@@ -511,22 +525,55 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
       const k = `${f.kind}|${f.refs.map(refKey).sort().join(',')}`;
       if (!findings.has(k)) findings.set(k, f);
     };
-    for (const [key, v] of verified) {
-      const c = candidates.get(key);
-      if (!c) continue;
-      const docSides = c.sides.filter((s) => s.provenance.some((r) => !isCodeRef(r)));
+    const contradictions: Finding[] = [];
+    for (const c of candidates.values()) {
+      const v = verified.get(c.key);
+      const verdict = v ? 'contradiction' : rejected.has(c.key) ? 'rejected' : 'unverified';
+      log({ event: 'contradict_candidate', run_id: ctx.run_id, org_id: ctx.org_id, origins: [...c.origins].sort().join(','), verdict, refs: unionRefs(c.sides).map(refKey).join(' ') });
+      if (!v) continue;
       const codeSides = c.sides.filter((s) => s.provenance.every(isCodeRef));
+      const docSides = c.sides.filter((s) => s.provenance.some((r) => !isCodeRef(r)));
+      const recordSides = c.sides.filter((s) => s.provenance.some(isRecordRef));
       const refs = unionRefs(c.sides);
       const summary = `${c.question}: ${v.summary}${v.newer ? ` Newer: "${v.newer.text}" (${v.newer.source}, ${v.newer.date}).` : ''}`;
-      if (docSides.length >= 2 || codeSides.length === c.sides.length) {
-        put({ kind: 'contradiction', refs, summary, suggested_knowers: [...new Set(c.sides.flatMap(authorsOf))], confidence: 0.8 });
-        stats.contradictions += 1;
+      if (codeSides.length === c.sides.length) {
+        // Commit and code history is not a conflict: the code's current state wins by definition.
+        stats.code_history += 1;
+        continue;
+      }
+      if (recordSides.length === 0) {
+        // Chat disagreeing with chat: a human question, never a contradiction between records.
+        put({ kind: 'low_confidence', refs, summary: `Chat disagrees, no source of record: ${summary}`, suggested_knowers: [...new Set(c.sides.flatMap(authorsOf))], confidence: 0.4 });
+        stats.chat_only += 1;
+        continue;
+      }
+      if (docSides.length >= 2) {
+        contradictions.push({ kind: 'contradiction', refs, summary, suggested_knowers: [...new Set(c.sides.flatMap(authorsOf))], confidence: 0.8 });
       }
       if (docSides.length >= 1 && codeSides.length >= 1) {
         put({ kind: 'drift', refs, summary: `Docs vs code — ${summary}`, confidence: 0.7 });
         stats.drifts += 1;
       }
     }
+    // One record citation, one finding: the same policy line disagreeing with six Slack reminders
+    // (or with two other documents) is one conflict with several sources, not several conflicts.
+    const mergedFindings: Finding[] = [];
+    for (const f of contradictions) {
+      const keys = new Set(f.refs.filter(isRecordRef).map(refKey));
+      const idx = mergedFindings.findIndex((m) => m.refs.some((r) => isRecordRef(r) && keys.has(refKey(r))));
+      const existing = mergedFindings[idx];
+      if (idx < 0 || !existing) {
+        mergedFindings.push(f);
+        continue;
+      }
+      const seen = new Set(existing.refs.map(refKey));
+      const extra = f.refs.filter((r) => !seen.has(refKey(r)));
+      const also = existing.summary.length < 700 ? `${existing.summary} Also: ${f.summary.slice(0, 200)}` : existing.summary;
+      mergedFindings[idx] = { ...existing, refs: [...existing.refs, ...extra], summary: also, suggested_knowers: [...new Set([...(existing.suggested_knowers ?? []), ...(f.suggested_knowers ?? [])])] };
+      stats.merged_findings += 1;
+    }
+    for (const f of mergedFindings) put(f);
+    stats.contradictions = mergedFindings.length;
     for (const f of implied) put(f);
     stats.implied = implied.length;
     // A judge escalation nothing here confirmed stays a gap for a human, as low_confidence.
@@ -542,7 +589,7 @@ export function createContradictStage(deps: ContradictDeps = {}): StageRunner {
     if (truncated > 0) notes.push(`contradict: ${truncated} response(s) were cut off; ${retries} split batch(es) retried`);
     if (parseFailures > 0) notes.push(`contradict: ${parseFailures} response(s) had no parseable JSON`);
     notes.push(`contradict: ${stats.eligible_topics}/${stats.topics} topics eligible, ${discoveryBatches} discovery batch(es); ${stats.candidates} candidates (${stats.from_discovery} discovery, ${stats.from_draft} draft, ${stats.from_judge} judge) → ${stats.verified} verified, ${stats.rejected} rejected, ${stats.unverified} unverified`);
-    notes.push(`contradict: ${stats.contradictions} contradictions, ${stats.drifts} doc-vs-code drifts, ${stats.implied} implied-knowledge gaps, ${stats.escalations_kept} judge escalation(s) kept as low_confidence`);
+    notes.push(`contradict: ${stats.contradictions} contradictions (${stats.merged_findings} merged into them), ${stats.drifts} doc-vs-code drifts, ${stats.chat_only} chat-only disagreements → low_confidence, ${stats.code_history} code-history pairs dropped, ${stats.implied} implied-knowledge gaps, ${stats.escalations_kept} judge escalation(s) kept as low_confidence`);
     log({ event: 'stage', stage: 'contradict', run_id: ctx.run_id, org_id: ctx.org_id, escalated_artifacts: escalated.size, ...stats, ...usage });
 
     return {
