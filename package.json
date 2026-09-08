@@ -16,6 +16,7 @@
     "test": "vitest run",
     "eval": "tsx evals/run.ts",
     "mcp": "tsx packages/mcp-server/src/main.ts",
+    "scan-report": "tsx apps/admin/src/scan-report.ts",
     "compile": "tsx apps/workers/src/compile.ts",
     "db:migrate": "tsx packages/schema/src/cli.ts migrate",
     "db:reset": "tsx packages/schema/src/cli.ts reset",

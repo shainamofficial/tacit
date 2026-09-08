@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     "./agent-budgets": "./agent-budgets.ts",
-    "./compile-budgets": "./compile-budgets.ts"
+    "./compile-budgets": "./compile-budgets.ts",
+    "./scan-report": "./scan-report.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -25,7 +25,7 @@ import { EVALS_ROOT, loadCorpus, type LoadedCorpus } from './corpus';
 import { scoreExtract, type ExtractScore } from './extract';
 import { judgeFactuality } from './factuality';
 import { scoreFilter, type FilterScore } from './filter';
-import { ProbesSchema, checkArtifacts, probeServe, type Leak } from './permission';
+import { ProbesSchema, checkArtifacts, probeReport, probeServe, type Leak } from './permission';
 import { openEvalRun } from './run-record';
 import { scoreContradictions, scoreDrift, scoreTribal, type ContradictionScore, type DriftScore, type TribalScore } from './score';
 
@@ -233,7 +233,7 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
   }
   if (opts.serveOut) {
     // Local snapshot for `pnpm mcp`: the compiled cards, the items behind them, and scope membership from the corpus ACLs.
-    writeSnapshot(opts.serveOut, { org_id: run.orgId, artifacts, items: corpus.items, scopes: Object.fromEntries([...corpus.scopeMembers.entries()].map(([scope, members]) => [scope, members ? [...members] : null])) });
+    writeSnapshot(opts.serveOut, { org_id: run.orgId, org_name: 'Northwind Robotics', artifacts, items: corpus.items, scopes: Object.fromEntries([...corpus.scopeMembers.entries()].map(([scope, members]) => [scope, members ? [...members] : null])), findings, people: corpus.people });
     notes.push(`serve snapshot written to ${opts.serveOut} (${artifacts.length} artifacts)`);
   }
   const missing = stageReports.filter((s) => !s.implemented).map((s) => s.name);
@@ -268,6 +268,8 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     probed = serve.probed;
     leaks.push(...serve.leaks);
     if (!pipeline.serve) notes.push('serve path not implemented; permission probes skipped (artifact scopes still checked)');
+    // The scan report is graded on the same probes: no restricted text or reference for any probe user.
+    leaks.push(...probeReport(findings, probes, corpus));
   }
 
   const scored = scoredKeys(filter);

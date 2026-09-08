@@ -7,14 +7,15 @@
 //      requiring the scope it came from.
 //   2. Serving: probe questions from an unprivileged user must never return
 //      restricted refs, restricted text, or artifacts the user cannot see.
-import type { EvalArtifact, EvalPipeline } from '@tacit/pipeline';
+import { renderScanReport } from '@tacit/artifacts';
+import type { EvalArtifact, EvalPipeline, Finding } from '@tacit/pipeline';
 import { z } from 'zod';
 import type { Manifest } from '../corpus/generator/manifest';
 import { userCanSee, visibleScopes, type LoadedCorpus } from './corpus';
 import { locationKeys, locationQuote, refKey } from './match';
 
 export interface Leak {
-  readonly kind: 'artifact_scope' | 'artifact_content' | 'serve_ref' | 'serve_content' | 'serve_artifact';
+  readonly kind: 'artifact_scope' | 'artifact_content' | 'serve_ref' | 'serve_content' | 'serve_artifact' | 'report_content' | 'report_ref';
   readonly defect_id?: string;
   readonly artifact_id?: string;
   readonly detail: string;
@@ -66,6 +67,27 @@ export function checkArtifacts(artifacts: readonly EvalArtifact[], corpus: Loade
       if (text.includes(q.quote) && !required.has(q.scope)) {
         leaks.push({ kind: 'artifact_content', defect_id: q.defect_id, artifact_id: a.id, detail: `artifact contains restricted text from ${q.defect_id} without requiring ${q.scope}` });
       }
+    }
+  }
+  return leaks;
+}
+
+/**
+ * The scan report is a read path too (F-SEC-1): rendered for each probe user it must contain
+ * neither restricted text nor a reference to a source that user cannot read.
+ */
+export function probeReport(findings: readonly Finding[], probes: readonly Probe[], corpus: LoadedCorpus): Leak[] {
+  const leaks: Leak[] = [];
+  const quotes = restrictedQuotes(corpus.manifest, corpus);
+  const restrictedRefs = [...corpus.byRef.values()].filter((i) => corpus.scopeMembers.get(i.scope_key) !== undefined);
+  for (const probe of probes) {
+    const scopes = visibleScopes(corpus, probe.user);
+    const { html } = renderScanReport({ orgName: 'Northwind', generatedAt: new Date().toISOString(), viewer: { email: probe.user, scopes }, findings, items: corpus.items, people: corpus.people });
+    for (const q of quotes) {
+      if (html.includes(q.quote) && !scopes.has(q.scope)) leaks.push({ kind: 'report_content', defect_id: probe.defect_id, detail: `${probe.user}'s scan report contains restricted text from ${q.defect_id}` });
+    }
+    for (const item of restrictedRefs) {
+      if (!scopes.has(item.scope_key) && (html.includes(item.external_ref) || html.includes(item.title))) leaks.push({ kind: 'report_ref', defect_id: probe.defect_id, detail: `${probe.user}'s scan report references restricted ${item.source} ${item.external_ref}` });
     }
   }
   return leaks;
