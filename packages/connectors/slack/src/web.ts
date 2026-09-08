@@ -52,6 +52,11 @@ async function* pages<T extends Paged>(call: (cursor: string | undefined) => Pro
   } while (cursor);
 }
 
+/** The connect flow's bot token → the connector's API (SDK stays inside this package). */
+export function slackFromToken(token: string): SlackWebApi {
+  return new SlackWebApi(new WebClient(token));
+}
+
 export class SlackWebApi implements SlackApi {
   constructor(private readonly client: WebClient) {}
 

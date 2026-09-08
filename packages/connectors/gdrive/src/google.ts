@@ -13,6 +13,13 @@ export function driveFromServiceAccount(key: { client_email: string; private_key
   return drive({ version: 'v3', auth: jwt });
 }
 
+/** A user's OAuth grant (drive.readonly, offline): the connect flow stores the refresh token, this refreshes on demand. */
+export function driveFromOAuth(client: { clientId: string; clientSecret: string }, tokens: { refresh_token?: string; access_token?: string }): drive_v3.Drive {
+  const oauth2 = new googleAuth.OAuth2(client.clientId, client.clientSecret);
+  oauth2.setCredentials({ ...(tokens.refresh_token ? { refresh_token: tokens.refresh_token } : {}), ...(tokens.access_token ? { access_token: tokens.access_token } : {}) });
+  return drive({ version: 'v3', auth: oauth2 });
+}
+
 const FILE_FIELDS = 'id,name,mimeType,modifiedTime,parents,trashed,webViewLink,permissions(type,emailAddress,domain,role)';
 const TEXT_MIMES = new Set(['text/plain', 'text/markdown', 'text/csv', 'application/json', 'text/x-markdown']);
 
