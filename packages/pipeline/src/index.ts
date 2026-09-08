@@ -4,6 +4,7 @@
 import { complete as gatewayComplete } from '@tacit/gateway';
 import { cachedGatewayComplete } from './cache';
 import { evalPipeline } from './contract';
+import { Retriever } from '@tacit/artifacts';
 import { createContradictStage } from './stages/contradict';
 import { createDraftStage } from './stages/draft';
 import { createDriftStage } from './stages/drift';
@@ -30,3 +31,14 @@ evalPipeline.stages.draft = createDraftStage({ complete });
 evalPipeline.stages.judge = createJudgeStage({ complete });
 evalPipeline.stages.contradict = createContradictStage({ complete });
 evalPipeline.stages.drift = createDriftStage({ complete });
+// The eval's read path (F-SRV-3): the same permission-filtered retriever the MCP server uses,
+// answering with the visible cards' bodies. No model call; the leak probes grade the filter.
+evalPipeline.serve = async (req, artifacts) => {
+  const scopes = new Set(req.user.scopes);
+  const result = new Retriever(artifacts).lookup(req.query, scopes, 3);
+  if (result.kind !== 'hit') return { answer: 'I do not have information on that.', refs: [], artifact_ids: [] };
+  const byId = new Map(artifacts.map((a) => [a.id, a] as const));
+  const cards = result.entries.map((e) => byId.get(e.id)).filter((a): a is (typeof artifacts)[number] => a !== undefined);
+  const refs = new Map(cards.flatMap((a) => a.claims.flatMap((c) => c.provenance)).map((r) => [`${r.kind}|${r.ref}|${r.line ?? ''}`, r] as const));
+  return { answer: cards.map((a) => `${a.title}\n${a.body_md}`).join('\n\n'), refs: [...refs.values()], artifact_ids: cards.map((a) => a.id) };
+};

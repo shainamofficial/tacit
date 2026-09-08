@@ -7,19 +7,22 @@
 // 1. Doc statements: technical claims from documents/macros/READMEs, plus
 //    technical lines of those documents no claim covers (code fences, inline
 //    identifiers) — that is where stale examples hide.
-// 2. Retrieval: a small BM25 index over code files and commit messages,
+// 2. Retrieval: the shared lexical index (@tacit/artifacts) over code files and commits,
 //    tokenized so `NW_DB_URL`, `databaseUrl` and "rename NW_DB_URL to
 //    DATABASE_URL" meet on the same terms. Top files/commits per statement,
 //    excerpted around the matching lines.
 // 3. Verification (mid-tier route `drift`): does the current code contradict
 //    the statement? Only a `drift` verdict with cited code becomes a finding,
 //    linked to the code lines and the commit that changed it.
+import { buildSearchIndex, excerptWindows as windowsOf, queryTokens, searchIndex, sharedRareTerms as rareTerms, tokenize, type SearchIndex } from '@tacit/artifacts';
 import { BudgetExceededError, complete as gatewayComplete, type CompleteFn } from '@tacit/gateway';
 import { loadPrompt } from '@tacit/prompts';
 import { z } from 'zod';
 import { wasCached } from '../cache';
 import type { EvalSyncItem, ExtractedClaim, Finding, SourceRef, StageContext, StageResult, StageRunner } from '../contract';
 import { drain, parseWithSalvage } from '../json';
+
+export { queryTokens, tokenize };
 
 export interface DriftDeps {
   readonly complete?: CompleteFn;
@@ -40,45 +43,6 @@ const Result = z.object({
   summary: z.string().max(600).optional(),
 });
 const Output = z.object({ results: z.array(Result) });
-
-// ---- tokenization: identifiers split on _, -, ., /, and camelCase; lowercase; short/stop words dropped
-const STOP = new Set(['to', 'of', 'in', 'on', 'at', 'by', 'is', 'it', 'as', 'or', 'an', 'be', 'do', 'if', 'no', 'so', 'up', 'we', 'he', 'me', 'my', 'us', 'am', 'the', 'and', 'for', 'with', 'that', 'this', 'from', 'are', 'was', 'were', 'has', 'have', 'not', 'but', 'you', 'your', 'our', 'all', 'any', 'can', 'will', 'must', 'should', 'into', 'per', 'via', 'use', 'set', 'const', 'export', 'import', 'return', 'true', 'false', 'null', 'new', 'let', 'var', 'function', 'type', 'string', 'number', 'readonly', 'async', 'await', 'then', 'else', 'when', 'than', 'also', 'only', 'every', 'each', 'before', 'after', 'about', 'more', 'most', 'some', 'such', 'other', 'their', 'there', 'they', 'them', 'been', 'being', 'does', 'did', 'how', 'what', 'which', 'who', 'why', 'its', 'one', 'two', 'see', 'get', 'put', 'post', 'run', 'runs', 'over', 'out', 'off', 'default', 'value']);
-
-/** Light stemming so "deliveries" meets DELIVERY and "retried" meets MAX_RETRIES. */
-function stem(w: string): string {
-  if (w.length <= 3 || /^\d+$/.test(w)) return w;
-  if (w.endsWith('ies') || w.endsWith('ied')) return `${w.slice(0, -3)}y`;
-  if (w.endsWith('sses')) return w.slice(0, -2);
-  if (w.endsWith('es') && w.length > 4 && !w.endsWith('ses')) return w.slice(0, -2);
-  if (w.endsWith('ed') && w.length > 4) return w.slice(0, -2);
-  if (w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
-  return w;
-}
-
-/** Code vocabulary that prose spells out: "database" ↔ db/, "authenticate" ↔ auth.ts. */
-const SYN: Record<string, string> = { db: 'database', authentication: 'auth', authenticate: 'auth', authenticat: 'auth', authenticating: 'auth', configuration: 'config', environment: 'env', variable: 'var', repository: 'repo', directory: 'dir', parameter: 'param' };
-const norm = (w: string): string => SYN[w] ?? SYN[stem(w)] ?? stem(w);
-
-const rawTokens = (text: string): string[] =>
-  text
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((r) => r.length >= 2);
-
-export function tokenize(text: string): string[] {
-  return rawTokens(text)
-    .filter((r) => !STOP.has(r))
-    .map(norm);
-}
-
-/** Query terms: tokens plus adjacent pairs joined, so "time out" and "rate limit" meet TIMEOUT and rateLimit. */
-export function queryTokens(text: string): string[] {
-  const raw = rawTokens(text);
-  const joined = raw.slice(1).map((w, i) => ({ a: raw[i] ?? '', b: w })).filter(({ a, b }) => !(STOP.has(a) && STOP.has(b))).map(({ a, b }) => `${a}${b}`).filter((j) => j.length <= 20 && /^[a-z]+$/.test(j));
-  return [...new Set([...tokenize(text), ...joined])];
-}
 
 /** Does a doc line or claim talk about something the code could contradict? */
 const TECH = [
@@ -117,69 +81,25 @@ export function isCodeItem(item: EvalSyncItem): boolean {
   return item.source === 'github_commit' || (item.source === 'github' && !item.external_ref.toLowerCase().endsWith('.md'));
 }
 
-// ---- BM25 over code items
-interface Indexed {
+// ---- code index: the shared lexical search (@tacit/artifacts) over code files and commit messages
+interface CodeDoc {
+  readonly id: string;
+  readonly text: string;
   readonly item: EvalSyncItem;
-  readonly tf: ReadonlyMap<string, number>;
-  readonly len: number;
 }
-export interface CodeIndex {
-  readonly docs: readonly Indexed[];
-  readonly df: ReadonlyMap<string, number>;
-  readonly avgLen: number;
-}
+export type CodeIndex = SearchIndex<CodeDoc>;
 export function buildIndex(items: readonly EvalSyncItem[]): CodeIndex {
-  const docs: Indexed[] = [];
-  const df = new Map<string, number>();
-  for (const item of items) {
-    const tokens = tokenize(`${item.title}\n${item.content}`);
-    const tf = new Map<string, number>();
-    for (const t of tokens) tf.set(t, (tf.get(t) ?? 0) + 1);
-    for (const t of tf.keys()) df.set(t, (df.get(t) ?? 0) + 1);
-    docs.push({ item, tf, len: tokens.length });
-  }
-  const avgLen = docs.length === 0 ? 1 : docs.reduce((s, d) => s + d.len, 0) / docs.length;
-  return { docs, df, avgLen };
+  return buildSearchIndex(items.map((item) => ({ id: item.id, text: `${item.title}\n${item.content}`, item })));
 }
 export function search(index: CodeIndex, query: string, k: number): { item: EvalSyncItem; score: number }[] {
-  const q = queryTokens(query);
-  const n = index.docs.length;
-  const scored = index.docs.map((d) => {
-    let score = 0;
-    for (const t of q) {
-      const tf = d.tf.get(t);
-      if (!tf) continue;
-      const df = index.df.get(t) ?? 0;
-      const idf = Math.log(1 + (n - df + 0.5) / (df + 0.5));
-      score += idf * ((tf * 2.2) / (tf + 1.2 * (0.25 + 0.75 * (d.len / index.avgLen))));
-    }
-    return { item: d.item, score };
-  });
-  return scored
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score || a.item.external_ref.localeCompare(b.item.external_ref))
-    .slice(0, k);
+  return searchIndex(index, query, k).map((h) => ({ item: h.doc.item, score: h.score }));
 }
-
-/** Numbered excerpt windows around the lines that share the most query tokens with the statement. */
 export function excerptWindows(item: EvalSyncItem, query: string, contextLines: number, maxWindows: number): { line: number; text: string }[] {
-  const q = new Set(queryTokens(query));
-  const lines = item.content.split('\n');
-  const hits = lines
-    .map((l, i) => ({ i, n: new Set(tokenize(l).filter((t) => q.has(t))).size }))
-    .filter((h) => h.n > 0)
-    .sort((a, b) => b.n - a.n || a.i - b.i);
-  const windows: { start: number; end: number; anchor: number }[] = [];
-  for (const h of hits) {
-    if (windows.length >= maxWindows) break;
-    const start = Math.max(0, h.i - contextLines);
-    const end = Math.min(lines.length, h.i + contextLines + 1);
-    if (windows.some((w) => h.i >= w.start && h.i < w.end)) continue;
-    windows.push({ start, end, anchor: h.i });
-  }
-  return windows
-    .sort((a, b) => a.start - b.start)
-    .map((w) => ({ line: w.anchor + 1, text: lines.slice(w.start, w.end).map((l, j) => `${w.start + j + 1}: ${l}`).join('\n') }));
+  return windowsOf(item.content, query, contextLines, maxWindows);
+}
+/** Rare code terms (in few code items) that a statement shares with the code base: an identifier-level link. */
+export function sharedRareTerms(index: CodeIndex, text: string): string[] {
+  return rareTerms(index, text);
 }
 
 export interface DocStatement {
@@ -189,15 +109,6 @@ export interface DocStatement {
   readonly text: string;
   readonly quote?: string;
   readonly origin: 'claim' | 'line';
-}
-
-/** Rare code terms (in few code items) that a statement shares with the code base: an identifier-level link. */
-export function sharedRareTerms(index: CodeIndex, text: string): string[] {
-  const cap = Math.max(3, Math.floor(index.docs.length * 0.1));
-  return queryTokens(text).filter((t) => {
-    const df = index.df.get(t) ?? 0;
-    return df > 0 && df <= cap && !/^\d+$/.test(t);
-  });
 }
 
 /**

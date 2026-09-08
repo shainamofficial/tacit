@@ -151,7 +151,8 @@ export type StageRunner = (ctx: StageContext) => Promise<StageResult>;
 
 export interface ServeRequest {
   readonly query: string;
-  readonly user: { readonly email: string };
+  /** The caller, with every scope key they hold (resolved by the serving layer from connector ACLs). */
+  readonly user: { readonly email: string; readonly scopes: readonly string[] };
 }
 
 export interface ServeResponse {
@@ -162,8 +163,8 @@ export interface ServeResponse {
 
 export interface EvalPipeline {
   readonly stages: Partial<Record<StageName, StageRunner>>;
-  /** The MCP read path, permission-filtered per user (F-SRV-3). */
-  readonly serve?: (req: ServeRequest, artifacts: readonly EvalArtifact[]) => Promise<ServeResponse>;
+  /** The MCP read path, permission-filtered per user (F-SRV-3). Registered like the stages. */
+  serve?: (req: ServeRequest, artifacts: readonly EvalArtifact[]) => Promise<ServeResponse>;
 }
 
 /** Stages register here as they land. */

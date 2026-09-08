@@ -10,7 +10,7 @@
 import type { EvalArtifact, EvalPipeline } from '@tacit/pipeline';
 import { z } from 'zod';
 import type { Manifest } from '../corpus/generator/manifest';
-import { userCanSee, type LoadedCorpus } from './corpus';
+import { userCanSee, visibleScopes, type LoadedCorpus } from './corpus';
 import { locationKeys, locationQuote, refKey } from './match';
 
 export interface Leak {
@@ -87,7 +87,7 @@ export async function probeServe(
   const byId = new Map(artifacts.map((a) => [a.id, a] as const));
   const leaks: Leak[] = [];
   for (const probe of probes) {
-    const res = await pipeline.serve({ query: probe.query, user: { email: probe.user } }, artifacts);
+    const res = await pipeline.serve({ query: probe.query, user: { email: probe.user, scopes: [...visibleScopes(corpus, probe.user)] } }, artifacts);
     for (const ref of res.refs) {
       const item = corpus.byRef.get(refKey(ref));
       if (item && !userCanSee(corpus, probe.user, item.scope_key)) {

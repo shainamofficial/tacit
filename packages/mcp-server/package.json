@@ -8,6 +8,16 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tacit/artifacts": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "pg": "^8.23.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }

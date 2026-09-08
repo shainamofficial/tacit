@@ -3,6 +3,7 @@
 // and decide pass/fail against evals/golden/thresholds.json.
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { writeSnapshot } from '@tacit/artifacts';
 import { complete as gatewayComplete, type CompleteFn } from '@tacit/gateway';
 import {
   STAGE_ORDER,
@@ -101,6 +102,8 @@ export interface Scorecard {
 }
 
 export interface RunOptions {
+  /** Write a serve snapshot (artifacts, items, scope membership) for `pnpm mcp` to this directory. */
+  readonly serveOut?: string;
   readonly stage?: StageFilter;
   readonly corpusDir?: string;
   readonly manifestPath?: string;
@@ -227,6 +230,11 @@ export async function runEval(opts: RunOptions = {}): Promise<Scorecard> {
     if (!stageReports.some((s) => s.name === name)) {
       stageReports.push({ name, implemented: Boolean(pipeline.stages[name]), ran: false, artifacts: 0, findings: 0, kept: null, claims: 0, usage: ZERO_USAGE, stats: {}, notes: [] });
     }
+  }
+  if (opts.serveOut) {
+    // Local snapshot for `pnpm mcp`: the compiled cards, the items behind them, and scope membership from the corpus ACLs.
+    writeSnapshot(opts.serveOut, { org_id: run.orgId, artifacts, items: corpus.items, scopes: Object.fromEntries([...corpus.scopeMembers.entries()].map(([scope, members]) => [scope, members ? [...members] : null])) });
+    notes.push(`serve snapshot written to ${opts.serveOut} (${artifacts.length} artifacts)`);
   }
   const missing = stageReports.filter((s) => !s.implemented).map((s) => s.name);
   if (missing.length > 0) notes.push(`stages not implemented: ${missing.join(', ')}`);
