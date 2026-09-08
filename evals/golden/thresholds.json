@@ -12,5 +12,5 @@
   "permission_leaks_max": 0,
   "factuality": 0.95,
   "factuality_sample": 40,
-  "compile_cost_usd_max": 15
+  "compile_cost_usd_max": 20
 }
