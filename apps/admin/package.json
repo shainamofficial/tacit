@@ -8,6 +8,11 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "scan-report": "tsx src/scan-report.ts",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tacit/artifacts": "workspace:*",
+    "@tacit/config": "workspace:*"
   }
 }
