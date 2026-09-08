@@ -32,6 +32,7 @@ stages:
   judge: { model: m }
   contradict: { model: m, effort: max, max_tokens: 5 }
   contradict_verify: { model: m }
+  drift: { model: m }
   interview: { model: m }
   eval_judge: { model: m }
 `);
@@ -51,6 +52,7 @@ stages:
   judge: { model: m }
   contradict: { model: m }
   contradict_verify: { model: m }
+  drift: { model: m }
   interview: { model: m }
 `;
     expect(() => parseRouting(`${base}  eval_judge: { model: unknown-model }\n`)).toThrow(/no pricing entry/);
