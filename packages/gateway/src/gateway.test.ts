@@ -19,6 +19,7 @@ stages:
   judge:      { model: primary, fallbacks: [] }
   contradict: { model: primary }
   contradict_verify: { model: primary }
+  drift: { model: primary }
   interview:  { model: primary }
   eval_judge: { model: primary, cache_system: false }
 `);

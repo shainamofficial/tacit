@@ -6,6 +6,7 @@ import { cachedGatewayComplete } from './cache';
 import { evalPipeline } from './contract';
 import { createContradictStage } from './stages/contradict';
 import { createDraftStage } from './stages/draft';
+import { createDriftStage } from './stages/drift';
 import { createExtractStage } from './stages/extract';
 import { createJudgeStage } from './stages/judge';
 import { createFilterStage } from './stages/filter';
@@ -16,6 +17,7 @@ export { capClaims, createContradictStage, groupByTopic, isCodeRef, isRecordRef,
 export { createDraftStage, mergeClaims, normalizeSubject, variantsFor, type DraftDeps, type MergedClaim, type Variant } from './stages/draft';
 export { batchItems, createExtractStage, locateQuote, type ExtractDeps } from './stages/extract';
 export { drain, parseWithSalvage } from './json';
+export { buildIndex, createDriftStage, docStatements, excerptWindows, isCodeItem, isDocItem, isTechnical, isTechnicalLine, queryTokens, search, sharedRareTerms, tokenize, type CodeIndex, type DocStatement, type DriftDeps, type DriftStats } from './stages/drift';
 export { createJudgeStage, itemAuthors, sourceExcerpt, type JudgeDeps, type JudgeStats } from './stages/judge';
 export { createFilterStage, ruleDecision, type FilterDecision, type FilterDeps } from './stages/filter';
 
@@ -27,3 +29,4 @@ evalPipeline.stages.extract = createExtractStage({ complete });
 evalPipeline.stages.draft = createDraftStage({ complete });
 evalPipeline.stages.judge = createJudgeStage({ complete });
 evalPipeline.stages.contradict = createContradictStage({ complete });
+evalPipeline.stages.drift = createDriftStage({ complete });
