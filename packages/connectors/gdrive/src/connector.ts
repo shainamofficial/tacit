@@ -1,6 +1,6 @@
 // Google Drive connector: backfill + changes-API delta sync into the sync
 // store with per-file ACL capture (F-ING-2, F-ING-3, F-ING-4, F-ING-6).
-import { SyncCursors, SyncStore, emptyStats, inScope, tally, type Acl, type SyncStats } from '@tacit/connector-core';
+import { SyncCursors, SyncStore, emptyStats, inScope, scopeKeys, tally, type Acl, type SyncStats } from '@tacit/connector-core';
 import { FOLDER_MIME, type DriveApi, type DriveFile, type DrivePermission } from './api';
 
 export interface DriveSyncOptions {
@@ -50,6 +50,7 @@ async function upsertFile(api: DriveApi, store: SyncStore, opts: DriveSyncOption
       content: text,
       acl,
       meta: {
+        scope_key: scopeKeys.driveDoc(file.id),
         mime_type: file.mimeType,
         modified_time: file.modifiedTime,
         path: file.folderPath ? `${file.folderPath}/${file.name}` : file.name,

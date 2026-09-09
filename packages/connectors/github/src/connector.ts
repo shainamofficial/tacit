@@ -1,6 +1,6 @@
 // GitHub connector: backfill and merge-triggered incremental sync into the
 // sync store (F-ING-2, F-ING-3, F-ING-6, F-CODE-2). No model calls here, ever.
-import { SyncStore, emptyStats, tally, type Acl, type SyncStats } from '@tacit/connector-core';
+import { SyncStore, emptyStats, scopeKeys, tally, type Acl, type SyncStats } from '@tacit/connector-core';
 import type { GitHubApi, PullSummary, RepoInfo, RepoRef } from './api';
 import type { MergeEvent } from './webhook';
 
@@ -107,7 +107,7 @@ async function upsertRepoItem(store: SyncStore, opts: GitHubSyncOptions, repo: R
       title: repo.fullName,
       content: `${content}\n`,
       acl,
-      meta: { default_branch: repo.defaultBranch, private: repo.private, html_url: repo.htmlUrl, topics: repo.topics, codeowners },
+      meta: { scope_key: scopeKeys.githubRepo(opts.ref.owner, opts.ref.repo), default_branch: repo.defaultBranch, private: repo.private, html_url: repo.htmlUrl, topics: repo.topics, codeowners },
     }),
   );
 }
@@ -123,6 +123,7 @@ async function upsertPull(store: SyncStore, opts: GitHubSyncOptions, p: PullSumm
       content: renderPull(p),
       acl,
       meta: {
+        scope_key: scopeKeys.githubRepo(opts.ref.owner, opts.ref.repo),
         number: p.number,
         merged_at: p.mergedAt,
         merge_commit_sha: p.mergeCommitSha,
@@ -163,7 +164,7 @@ export async function backfillRepo(api: GitHubApi, store: SyncStore, opts: GitHu
         title: entry.path,
         content: text,
         acl,
-        meta: { sha: entry.sha, size: entry.size, branch: repo.defaultBranch },
+        meta: { scope_key: scopeKeys.githubRepo(opts.ref.owner, opts.ref.repo), sha: entry.sha, size: entry.size, branch: repo.defaultBranch },
       }),
     );
   }
@@ -210,7 +211,7 @@ export async function syncMergedPull(api: GitHubApi, store: SyncStore, opts: Git
         title: f.path,
         content: text,
         acl,
-        meta: { branch: repo.defaultBranch, merge_commit_sha: pull.mergeCommitSha, pr: pull.number },
+        meta: { scope_key: scopeKeys.githubRepo(opts.ref.owner, opts.ref.repo), branch: repo.defaultBranch, merge_commit_sha: pull.mergeCommitSha, pr: pull.number },
       }),
     );
     if (f.path === 'CODEOWNERS' || f.path === '.github/CODEOWNERS') await upsertRepoItem(store, opts, repo, acl, text, stats);

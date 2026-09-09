@@ -72,7 +72,21 @@ importers:
 
   apps/explorer: {}
 
-  apps/workers: {}
+  apps/workers:
+    dependencies:
+      '@tacit/config':
+        specifier: workspace:*
+        version: link:../../config
+      '@tacit/pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pipeline
+      pg:
+        specifier: ^8.23.0
+        version: 8.23.0
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
 
   config: {}
 
@@ -81,6 +95,9 @@ importers:
       '@tacit/artifacts':
         specifier: workspace:*
         version: link:../packages/artifacts
+      '@tacit/connector-core':
+        specifier: workspace:*
+        version: link:../packages/connectors/core
       '@tacit/gateway':
         specifier: workspace:*
         version: link:../packages/gateway
@@ -246,9 +263,16 @@ importers:
       '@tacit/prompts':
         specifier: workspace:*
         version: link:../prompts
+      pg:
+        specifier: ^8.23.0
+        version: 8.23.0
       zod:
         specifier: ^4.5.4
         version: 4.5.4
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
 
   packages/prompts:
     dependencies:

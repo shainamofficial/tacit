@@ -21,7 +21,8 @@
     "compile": "tsx apps/workers/src/compile.ts",
     "db:migrate": "tsx packages/schema/src/cli.ts migrate",
     "db:reset": "tsx packages/schema/src/cli.ts reset",
-    "corpus:build": "tsx evals/corpus/generator/build.ts"
+    "corpus:build": "tsx evals/corpus/generator/build.ts",
+    "seed:northwind": "tsx evals/seed.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

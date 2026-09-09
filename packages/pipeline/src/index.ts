@@ -13,6 +13,8 @@ import { createJudgeStage } from './stages/judge';
 import { createFilterStage } from './stages/filter';
 
 export * from './contract';
+export { compileOrg, type CompileOptions, type CompileResult, type StageSummary } from './compile';
+export { loadItems, type LoadedItems } from './db-items';
 export { FileCompletionCache, cacheKey, cachedGatewayComplete, wasCached } from './cache';
 export { capClaims, createContradictStage, groupByTopic, isCodeRef, isRecordRef, mergeSubsetTopics, orderForDiscovery, resolveKnower, type ContradictDeps, type ContradictStats, type Topic } from './stages/contradict';
 export { createDraftStage, mergeClaims, normalizeSubject, variantsFor, type DraftDeps, type MergedClaim, type Variant } from './stages/draft';
