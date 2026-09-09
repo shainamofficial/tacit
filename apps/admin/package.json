@@ -8,11 +8,21 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "start": "tsx src/main.ts",
     "scan-report": "tsx src/scan-report.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tacit/artifacts": "workspace:*",
-    "@tacit/config": "workspace:*"
+    "@tacit/config": "workspace:*",
+    "@tacit/connector-core": "workspace:*",
+    "@tacit/connector-gdrive": "workspace:*",
+    "@tacit/connector-github": "workspace:*",
+    "@tacit/connector-slack": "workspace:*",
+    "pg": "^8.23.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }

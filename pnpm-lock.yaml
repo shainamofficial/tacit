@@ -47,6 +47,28 @@ importers:
       '@tacit/config':
         specifier: workspace:*
         version: link:../../config
+      '@tacit/connector-core':
+        specifier: workspace:*
+        version: link:../../packages/connectors/core
+      '@tacit/connector-gdrive':
+        specifier: workspace:*
+        version: link:../../packages/connectors/gdrive
+      '@tacit/connector-github':
+        specifier: workspace:*
+        version: link:../../packages/connectors/github
+      '@tacit/connector-slack':
+        specifier: workspace:*
+        version: link:../../packages/connectors/slack
+      pg:
+        specifier: ^8.23.0
+        version: 8.23.0
+      zod:
+        specifier: ^4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
 
   apps/explorer: {}
 
