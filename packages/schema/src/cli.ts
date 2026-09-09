@@ -68,10 +68,12 @@ async function main(argv: readonly string[]): Promise<number> {
 
     const seed = flags.get('seed');
     if (seed !== undefined) {
-      console.error(
-        `seed '${seed}' is not available yet: seeding lands with the Northwind corpus ` +
-          'in Phase 0 (docs/implementation-plan.md §4).',
-      );
+      if (seed === 'northwind') {
+        // The seed lives with the corpus (evals/seed.ts) so this package stays free of eval code.
+        console.log('schema ready; now run: pnpm seed:northwind');
+        return 0;
+      }
+      console.error(`unknown seed '${seed}'; available: northwind (pnpm seed:northwind)`);
       return 1;
     }
     return 0;
