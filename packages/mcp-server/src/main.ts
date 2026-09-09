@@ -4,7 +4,7 @@
 //   TACIT_ORG_ID      the org to serve when TACIT_MCP_SOURCE=pg
 //   TACIT_MCP_TOKENS  JSON array of {token, email, org_id} (per-user bearer tokens)
 //   DATABASE_URL      required for pg; when set with a snapshot, query misses are written to the gaps table
-//   PORT              default 3333
+//   PORT / HOST       default 3333 / 127.0.0.1 (the container sets HOST=0.0.0.0)
 import path from 'node:path';
 import pg from 'pg';
 import { PgArtifactStore, PgScopeResolver, SnapshotStore, type ArtifactSource, type ScopeResolver } from '@tacit/artifacts';
@@ -42,5 +42,5 @@ if (mode === 'pg') {
   detail = { org_id: snapshot.snapshot.org_id, artifacts: snapshot.snapshot.artifacts.length, data: dataDir };
 }
 
-const { url } = await startHttpServer({ source, scopes, gaps, auth, log }, Number(process.env.PORT ?? 3333));
+const { url } = await startHttpServer({ source, scopes, gaps, auth, log }, Number(process.env.PORT ?? 3333), process.env.HOST ?? '127.0.0.1');
 log({ event: 'mcp_listening', url, source: mode, ...detail, gap_sink: pool ? 'postgres' : 'memory' });

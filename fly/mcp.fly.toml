@@ -1,0 +1,45 @@
+# The MCP server: `fly deploy -c fly/mcp.fly.toml`
+# One app per public service so each gets its own hostname on 443. The admin
+# app (fly/admin.fly.toml) shares the image and the Postgres cluster.
+app = "tacit-mcp"
+primary_region = "iad"
+
+[build]
+  dockerfile = "../Dockerfile"
+
+[deploy]
+  # Migrations run once per release, before the new machines take traffic.
+  release_command = "/app/scripts/start.sh migrate"
+
+[env]
+  TACIT_PROCESS = "mcp"
+  TACIT_MCP_SOURCE = "pg"
+  PORT = "3333"
+
+# Secrets (fly secrets set …): DATABASE_URL, TACIT_ORG_ID, TACIT_MCP_TOKENS, ANTHROPIC_API_KEY (compile machines only)
+
+[http_service]
+  internal_port = 3333
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+# Compile runs as a one-off machine on this app's image, not as a service:
+#   fly machine run . -c fly/mcp.fly.toml --rm -e ANTHROPIC_API_KEY=… -- compile --org=<id> --budget=20
+# The stage cache lives on an optional volume mounted at /data (see docs/deploy.md).
+[mounts]
+  source = "tacit_data"
+  destination = "/data"
+  initial_size = "1gb"

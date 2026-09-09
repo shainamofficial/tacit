@@ -43,6 +43,7 @@ Prereqs: Node 22+, pnpm (via `corepack enable`), Docker.
 cp .env.example .env      # set TACIT_PG_PORT if 5432 is taken locally
 pnpm install
 pnpm dev                  # starts docker Postgres (pgvector) + workers
+# deploy: docs/deploy.md (Fly.io, one image: scripts/start.sh mcp | admin | migrate | compile)
 pnpm db:migrate           # apply packages/schema/migrations
 pnpm typecheck && pnpm lint && pnpm test
 pnpm eval                 # exits 1 until Phase 0 lands — intentional

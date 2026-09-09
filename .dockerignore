@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+**/node_modules
+.turbo
+**/.turbo
+dist
+**/dist
+.env
+.env.*
+!.env.example
+evals/out
+evals/corpus/generated
+*.log
+Dockerfile
+fly
+docs/decisions

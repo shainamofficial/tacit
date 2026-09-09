@@ -1,0 +1,34 @@
+name: Deploy
+
+# Manual by design until a design partner is on the system: the founder picks
+# what to ship and when. Needs the FLY_API_TOKEN repository secret.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: Which app to deploy
+        type: choice
+        required: true
+        default: both
+        options: [mcp, admin, both]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy MCP server
+        if: ${{ inputs.app == 'mcp' || inputs.app == 'both' }}
+        run: flyctl deploy --remote-only -c fly/mcp.fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Deploy admin
+        if: ${{ inputs.app == 'admin' || inputs.app == 'both' }}
+        run: flyctl deploy --remote-only -c fly/admin.fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
