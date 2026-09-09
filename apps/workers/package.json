@@ -10,6 +10,15 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "compile": "tsx src/compile.ts",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tacit/config": "workspace:*",
+    "@tacit/pipeline": "workspace:*",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }

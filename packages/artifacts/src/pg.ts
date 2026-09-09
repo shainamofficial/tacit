@@ -3,10 +3,15 @@
 // (CLAUDE.md #5): a new artifact supersedes the live machine-produced one with
 // the same title and permission scope. Human-verified artifacts are never
 // superseded by the compiler (F-FRS-1) — the new card lands beside them for
-// the change-review inbox.
+// the change-review inbox. Claims and provenance carry an ordinal (0004):
+// artifact bodies cite claims by position.
+//
+// Also the Postgres side of serving: source items for get_sources, and the
+// scope resolver that turns a user's email into the scope keys they hold,
+// both from the ACLs and scope keys the connectors recorded at ingest.
 import type pg from 'pg';
 import type { ServeArtifact, ServeItem, SourceRef } from './retrieve';
-import type { ArtifactSource } from './snapshot';
+import type { ArtifactSource, ScopeResolver } from './snapshot';
 
 export interface Queryable {
   query<R extends pg.QueryResultRow = pg.QueryResultRow>(text: string, values?: unknown[]): Promise<pg.QueryResult<R>>;
@@ -46,6 +51,18 @@ interface ProvenanceRow extends pg.QueryResultRow {
   external_ref: string;
   line: number | null;
 }
+interface ItemRow extends pg.QueryResultRow {
+  id: string;
+  source_kind: 'slack' | 'gdrive' | 'github' | 'zendesk';
+  external_id: string;
+  kind: string;
+  title: string;
+  content: string | null;
+  meta: Record<string, unknown>;
+  updated_at: Date;
+}
+
+const scopeOf = (meta: Record<string, unknown> | null | undefined): string | null => (typeof meta?.scope_key === 'string' && meta.scope_key ? meta.scope_key : null);
 
 export class PgArtifactStore implements ArtifactSource {
   constructor(private readonly db: Queryable) {}
@@ -57,13 +74,10 @@ export class PgArtifactStore implements ArtifactSource {
        from artifacts a where ${live} order by a.recorded_at, a.ctid`,
       [orgId],
     );
-    // Claims are positional: an artifact body cites them as [c1], [c2]… Rows are never updated
-    // (supersede, never delete), so physical order is insertion order; a proposed `ordinal`
-    // column (schema PR) will make this explicit.
-    const claims = await this.db.query<ClaimRow>(`select c.id, c.artifact_id, c.text, c.confidence from claims c join artifacts a on a.id = c.artifact_id where ${live} order by c.ctid`, [orgId]);
+    const claims = await this.db.query<ClaimRow>(`select c.id, c.artifact_id, c.text, c.confidence from claims c join artifacts a on a.id = c.artifact_id where ${live} order by c.ordinal nulls last, c.ctid`, [orgId]);
     const prov = await this.db.query<ProvenanceRow>(
       `select p.claim_id, p.source_kind, p.external_ref, lower(p.span) as line
-       from provenance p join claims c on c.id = p.claim_id join artifacts a on a.id = c.artifact_id where ${live} order by p.ctid`,
+       from provenance p join claims c on c.id = p.claim_id join artifacts a on a.id = c.artifact_id where ${live} order by p.ordinal nulls last, p.ctid`,
       [orgId],
     );
     const provByClaim = new Map<string, SourceRef[]>();
@@ -91,14 +105,20 @@ export class PgArtifactStore implements ArtifactSource {
     }));
   }
 
-  /**
-   * Source items are not served from Postgres yet: sync_items carry no scope
-   * key, and the compile-from-database path (Week 6) is what will assign one.
-   * Until then get_sources over a Postgres-backed server returns nothing rather
-   * than a span whose permission we cannot prove.
-   */
-  async item(): Promise<ServeItem | undefined> {
-    return undefined;
+  /** The synced item behind a provenance ref, with the scope key its connector recorded; none without one (fail closed). */
+  async item(orgId: string, ref: SourceRef): Promise<ServeItem | undefined> {
+    const row = toRow(ref);
+    const externalId = ref.kind === 'github_commit' ? ref.ref : row.external_ref;
+    const r = await this.db.query<ItemRow>(
+      `select i.id, s.kind as source_kind, i.external_id, i.kind, i.title, c.content, i.meta, i.updated_at
+       from sync_items i join sources s on s.id = i.source_id left join sync_item_content c on c.sync_item_id = i.id
+       where s.org_id = $1 and s.kind = $2 and i.external_id = $3 and i.deleted_at is null limit 1`,
+      [orgId, row.source_kind, externalId],
+    );
+    const i = r.rows[0];
+    const scope = i ? scopeOf(i.meta) : null;
+    if (!i || !scope || i.content === null) return undefined;
+    return { id: i.id, source: i.source_kind === 'github' && i.kind === 'commit' ? 'github_commit' : i.source_kind, external_ref: i.external_id, title: i.title, content: i.content, scope_key: scope, modified_at: i.updated_at.toISOString() };
   }
 
   /**
@@ -124,16 +144,40 @@ export class PgArtifactStore implements ArtifactSource {
            and verification_state in ('unverified', 'machine_consistent') and id <> $3`,
         [orgId, a.title, newId, scope],
       );
+      let ci = 0;
       for (const c of a.claims) {
-        const claim = await this.db.query<{ id: string }>('insert into claims (artifact_id, text, confidence) values ($1, $2, $3) returning id', [newId, c.text, c.confidence]);
+        const claim = await this.db.query<{ id: string }>('insert into claims (artifact_id, text, confidence, ordinal) values ($1, $2, $3, $4) returning id', [newId, c.text, c.confidence, ci]);
+        ci += 1;
         const claimId = claim.rows[0]?.id;
         if (!claimId) throw new Error('claim insert returned no id');
+        let pi = 0;
         for (const ref of c.provenance) {
           const row = toRow(ref);
-          await this.db.query('insert into provenance (claim_id, source_kind, external_ref, span) values ($1, $2, $3, $4)', [claimId, row.source_kind, row.external_ref, ref.line !== undefined ? `[${ref.line},${ref.line + 1})` : null]);
+          await this.db.query('insert into provenance (claim_id, source_kind, external_ref, span, ordinal) values ($1, $2, $3, $4, $5)', [claimId, row.source_kind, row.external_ref, ref.line !== undefined ? `[${ref.line},${ref.line + 1})` : null, pi]);
+          pi += 1;
         }
       }
     }
     return ids;
+  }
+}
+
+/** A user's scope keys from the ACLs and scope keys recorded on the org's synced items. */
+export class PgScopeResolver implements ScopeResolver {
+  constructor(private readonly db: Queryable) {}
+
+  async scopesFor(orgId: string, email: string): Promise<ReadonlySet<string>> {
+    const e = email.toLowerCase();
+    const r = await this.db.query<{ scope_key: string; acl: { kind: 'domain'; domain: string } | { kind: 'users'; emails: string[] } }>(
+      `select distinct i.meta->>'scope_key' as scope_key, i.acl
+       from sync_items i join sources s on s.id = i.source_id
+       where s.org_id = $1 and i.deleted_at is null and i.meta->>'scope_key' is not null`,
+      [orgId],
+    );
+    const out = new Set<string>();
+    for (const row of r.rows) {
+      if (row.acl.kind === 'domain' || row.acl.emails.some((m) => m.toLowerCase() === e)) out.add(row.scope_key);
+    }
+    return out;
   }
 }

@@ -2,7 +2,7 @@
 // store captured (F-ING-3). Scope choices live in `sources.scope_config`
 // (F-ING-4); permission-review approvals live in `orgs.settings` (F-ADM-1).
 import type { Queryable } from '@tacit/artifacts';
-import type { Acl } from '@tacit/connector-core';
+import { loadAclGroups, type AclGroup } from '@tacit/connector-core';
 import { z } from 'zod';
 import type { SourceKind } from './oauth';
 
@@ -25,12 +25,7 @@ export interface OrgRow {
   readonly name: string;
   readonly settings: Readonly<Record<string, unknown>>;
 }
-/** One distinct ACL captured on a source's items, with how many items carry it. */
-export interface AclGroup {
-  readonly acl: Acl;
-  readonly items: number;
-  readonly samples: readonly string[];
-}
+export type { AclGroup };
 
 export interface AdminDb {
   org(orgId: string): Promise<OrgRow | null>;
@@ -112,12 +107,7 @@ export class PgAdminDb implements AdminDb {
     await this.db.query('update sources set status = $2 where id = $1', [id, status]);
   }
   async aclGroups(sourceId: string): Promise<AclGroup[]> {
-    const r = await this.db.query<{ acl: Acl; items: string; samples: string[] }>(
-      `select acl, count(*)::text as items, (array_agg(title order by title))[1:3] as samples
-       from sync_items where source_id = $1 and deleted_at is null group by acl order by count(*) desc`,
-      [sourceId],
-    );
-    return r.rows.map((row) => ({ acl: row.acl, items: Number(row.items), samples: row.samples }));
+    return loadAclGroups(this.db as unknown as Parameters<typeof loadAclGroups>[0], sourceId);
   }
   async patchOrgSettings(orgId: string, patch: Readonly<Record<string, unknown>>): Promise<void> {
     await this.db.query('update orgs set settings = settings || $2::jsonb where id = $1', [orgId, JSON.stringify(patch)]);

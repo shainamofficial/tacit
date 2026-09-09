@@ -2,7 +2,7 @@
 // and per-channel ts cursors (F-ING-2, F-ING-3, F-ING-4, F-ING-6).
 // One sync item per top-level message; a thread is one item containing its
 // replies, so a "what was decided" answer never loses its context.
-import { SyncCursors, SyncStore, emptyStats, inScope, tally, type Acl, type SyncStats } from '@tacit/connector-core';
+import { SyncCursors, SyncStore, emptyStats, inScope, scopeKeys, tally, type Acl, type SyncStats } from '@tacit/connector-core';
 import type { SlackApi, SlackConversation, SlackMessage, SlackUser } from './api';
 
 export interface SlackSyncOptions {
@@ -75,7 +75,7 @@ async function syncConversation(api: SlackApi, store: SyncStore, cursors: SyncCu
       title: c.isIm || c.isMpim ? `DM ${c.id}` : `#${c.name}`,
       content: `${c.isIm || c.isMpim ? `DM ${c.id}` : `#${c.name}`}\nTopic: ${c.topic || '(none)'}\nPurpose: ${c.purpose || '(none)'}\nPrivate: ${c.isPrivate || c.isIm || c.isMpim ? 'yes' : 'no'}\n`,
       acl,
-      meta: { name: c.name, private: c.isPrivate, im: c.isIm, mpim: c.isMpim, topic: c.topic, purpose: c.purpose },
+      meta: { scope_key: scopeKeys.slackConversation(c), name: c.name, private: c.isPrivate, im: c.isIm, mpim: c.isMpim, topic: c.topic, purpose: c.purpose },
     }),
   );
 
@@ -96,7 +96,7 @@ async function syncConversation(api: SlackApi, store: SyncStore, cursors: SyncCu
         title: `${c.isIm || c.isMpim ? 'DM' : `#${c.name}`} · ${stamp(m.ts).slice(0, 10)} · ${users.label(root.user)}`,
         content: renderThread(c, thread, users),
         acl,
-        meta: { conversation: c.id, ts: m.ts, user: root.user, principal: root.user ? users.principal(root.user) : null, reply_count: thread.length - 1, is_thread: thread.length > 1 },
+        meta: { scope_key: scopeKeys.slackConversation(c), conversation: c.id, ts: m.ts, user: root.user, principal: root.user ? users.principal(root.user) : null, reply_count: thread.length - 1, is_thread: thread.length > 1 },
         updatedAt: new Date(Number((thread[thread.length - 1] ?? m).ts.split('.')[0]) * 1000),
       }),
     );

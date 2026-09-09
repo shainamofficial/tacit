@@ -4,6 +4,8 @@ import type { UpsertResult } from './store';
 
 export { AclSchema, aclAllows, aclEquals, aclIntersect, normalizeAcl, type Acl } from './acl';
 export { SyncCursors } from './cursors';
+export { approvalFor, approvePatch, isApproved, loadAclGroups, mapPermissions, type AclGroup, type Approval, type MappingRow, type PermissionMapping } from './permissions';
+export { scopeKeyOf, scopeKeys } from './scope';
 export { redact, scanSecrets, shannonEntropy, type SecretSpan } from './secrets';
 export { SyncStore, atomic, contentHash, type Db, type StoredItem, type UpsertInput, type UpsertOutcome, type UpsertResult } from './store';
 
