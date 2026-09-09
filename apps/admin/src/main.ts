@@ -6,7 +6,7 @@
 //                         without it tokens are kept in memory for the life of the process
 //   DATABASE_URL          sources/orgs/sync_items
 //   SLACK_CLIENT_ID / SLACK_CLIENT_SECRET, GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET, GITHUB_APP_SLUG (+ GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY for the catalog)
-//   PORT                  default 3400
+//   PORT / HOST           default 3400 / 127.0.0.1 (the container sets HOST=0.0.0.0)
 import path from 'node:path';
 import pg from 'pg';
 import { EncryptedPgCredentialStore, MemoryCredentialStore, masterKeyFromEnv } from './credentials';
@@ -52,5 +52,6 @@ const { url } = await startAdminServer(
     log,
   },
   Number(env.PORT ?? 3400),
+  env.HOST ?? '127.0.0.1',
 );
 log({ event: 'admin_listening', url, providers: Object.keys(providers), credential_store: env.TACIT_MASTER_KEY ? 'postgres-sealed' : 'memory' });
